@@ -11,3 +11,8 @@
 __pycache__/
 *.pyc
 *.tmp
+
+# 构建、验收记录与 SDK 产物。
+/target/
+/dist/
+/artifacts/

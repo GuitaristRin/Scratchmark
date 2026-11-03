@@ -1,0 +1,16 @@
+[package]
+name = "scratchmark-ffi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+name = "scratchmark"
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+scratchmark-core = { path = "../scratchmark-core" }
+
+[lints]
+workspace = true
