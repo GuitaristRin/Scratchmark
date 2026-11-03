@@ -1,0 +1,13 @@
+# 本地样本与分析产物。
+/references/local/
+*.apk
+*.dex
+*.so
+*.pkm
+
+# 编辑器、缓存与临时文件。
+.idea/
+.vscode/
+__pycache__/
+*.pyc
+*.tmp
