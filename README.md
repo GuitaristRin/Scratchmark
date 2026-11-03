@@ -10,7 +10,7 @@ Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔�
 - 研究已有成熟样本，区分已核对事实、算法线索和待验证假设。
 - 为后续实现建立可复现的验证方法。
 
-PezMax-One 的课本／试卷批注是明确的后续接入场景。未来可以通过 Git submodule 集成；本阶段不修改 PezMax-One，也不建立 submodule。
+PezMax-One 的课本／试卷批注是明确的后续接入场景。正在评估独立二进制 SDK 分发，源码依赖作为另一种可选方式，接入不必依赖 Git submodule；本阶段不修改 PezMax-One，也不建立 submodule。
 
 ## 本地参考资料
 
