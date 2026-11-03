@@ -21,9 +21,10 @@ Git 远端使用 SSH：`git@github.com:GuitaristRin/Scratchmark.git`。
 ## 文档
 
 - [立项任务卡](docs/PROJECT_BRIEF.md)
+- [产品与架构方向裁定 - Canon](docs/DECISIONS_2026-11-03.md)
 - [主流移动便签样本探索](docs/REFERENCE_FINDINGS.md)
 - [多输入与语言选型提案 - Draft](docs/PROPOSALS_2026-11-03.md)
 - [输入与宿主约束核查 - Draft](docs/research/2026-11-03-input-and-host-evidence.md)
 - [协作约定](AGENTS.md)
 
-技术栈、首发平台、文件格式与对外接口均待研究后确定。仓库当前计划保持私有，待研发充分后再评估公开。
+按已确认的纯引擎及 Rust 核心 / 原生适配方向继续设计；具体依赖、显示后端、文件格式与对外接口仍待研究后确定。仓库当前计划保持私有，待研发充分后再评估公开。
