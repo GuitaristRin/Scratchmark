@@ -12,6 +12,12 @@ Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔�
 
 PezMax-One 的课本／试卷批注是明确的后续接入场景。未来可以通过 Git submodule 集成；本阶段不修改 PezMax-One，也不建立 submodule。
 
+## 本地参考资料
+
+完整 主流移动便签分析资料保存在 `本地参考/`，包括外部行为观察代码、APK、原生库、工具与已有分析文档。整个 `Refs/` 已被 Git 忽略，不随仓库推送。
+
+Git 远端使用 SSH：`git@github.com:GuitaristRin/Scratchmark.git`。
+
 ## 文档
 
 - [立项任务卡](docs/PROJECT_BRIEF.md)

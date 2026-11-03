@@ -6,6 +6,8 @@
 
 - 项目名：Scratchmark。
 - 在工作台 Projects 下建立独立仓库，归当前 GitHub 用户所有，初始可见性为 private。
+- Git 远端与推送使用 SSH。
+- 完整样本目录复制到 `本地参考/`，整个 `Refs/` 被 Git 忽略；保留原始目录。
 - 项目提供可供个人项目与协作项目使用的手写和页面批注能力。
 - PezMax-One 的下一版本需要在课本／试卷上留存笔记，是后续接入场景。
 - PezMax-One 尚未开始重构；本阶段不修改该项目、不建立 submodule。
@@ -35,6 +37,8 @@
 
 - 本地独立 Git 仓库位于 Projects/Scratchmark。
 - GitHub 仓库归当前认证用户所有，且 isPrivate 为 true。
+- origin 的 fetch 与 push 地址均为 SSH。
+- 本地参考副本与原目录文件清单及内容一致，且未被 Git 跟踪。
 - 立项与参考文档已提交，main 已推送，工作区干净。
 - 未修改 PezMax-One，未建立 submodule。
 

@@ -1,5 +1,5 @@
 # 本地样本与分析产物。
-/references/local/
+/Refs/
 *.apk
 *.dex
 *.so
