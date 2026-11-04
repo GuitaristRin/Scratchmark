@@ -26,6 +26,12 @@ internal static unsafe partial class Program
 
     private static int Main(string[] args)
     {
+        if (args.Length == 2 && args[0] == "--reject-old-sdk")
+        {
+            try { using var unexpected = new Engine(args[1]); }
+            catch (NotSupportedException) { Console.WriteLine("old SDK rejected before document creation"); return 0; }
+            throw new Exception("expected old SDK capability rejection");
+        }
         if (args.Length != 3) { Console.Error.WriteLine("usage: host ABS_DLL FIXTURE_HEX OUTPUT_SNAPSHOT"); return 2; }
         Layout<Sample>(32, [("X", 0), ("Y", 8), ("TimeUs", 16), ("Pressure", 24), ("Flags", 28)]);
         Layout<State>(32, [("Revision", 0), ("StrokeCount", 8), ("ActivePoints", 12), ("HasActive", 16),
@@ -37,6 +43,7 @@ internal static unsafe partial class Program
         Workflow(args[0], fixture, args[2]);
         NativeErrors(fixture);
         Lifecycle(args[0]);
+        BrushGeometry(args[0], fixture);
         Console.WriteLine($"C# smoke: {checks} checks passed");
         return 0;
     }

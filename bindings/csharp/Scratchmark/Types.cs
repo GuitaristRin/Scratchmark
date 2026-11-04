@@ -35,3 +35,16 @@ public sealed class ScratchmarkException(Status status) : Exception($"Scratchmar
 {
     public Status Status { get; } = status;
 }
+
+[StructLayout(LayoutKind.Sequential)]
+public struct BrushOptions
+{
+    public double Alpha, MinWidthRatio;
+    public uint PressureEnabled, Reserved;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct BrushPoint
+{
+    public double X, Y, Width;
+}

@@ -1,7 +1,9 @@
 //! 无窗口、无文件 I/O 的笔划状态；行为真源参 spec/M0.md。
+mod brush;
 mod codec;
 mod document;
 
+pub use brush::{BrushOptions, BrushPoint};
 pub use document::Document;
 pub const MAX_BATCH: usize = 65_536;
 pub const MAX_POINTS: usize = 1_000_000;
@@ -80,6 +82,7 @@ pub(crate) struct Stroke {
     pub color: u32,
     pub points: Vec<Sample>,
     pub bounds: Option<[f64; 4]>,
+    pub brush_cache: Option<brush::BrushCache>,
 }
 
 impl Stroke {
@@ -92,10 +95,14 @@ impl Stroke {
             color,
             points: Vec::new(),
             bounds: None,
+            brush_cache: None,
         })
     }
 
     pub fn extend(&mut self, samples: &[Sample]) {
+        if let Some(cache) = &mut self.brush_cache {
+            cache.extend(samples, self.width);
+        }
         for p in samples {
             let r = self.width / 2.0;
             let b = self
@@ -107,5 +114,22 @@ impl Stroke {
             b[3] = b[3].max(p.y + r);
         }
         self.points.extend_from_slice(samples);
+    }
+
+    pub fn brush_points(&mut self, options: BrushOptions) -> &[BrushPoint] {
+        if self
+            .brush_cache
+            .as_ref()
+            .is_none_or(|cache| cache.options != options)
+        {
+            self.brush_cache = None;
+            let mut cache = brush::BrushCache {
+                options,
+                points: Vec::new(),
+            };
+            cache.extend(&self.points, self.width);
+            self.brush_cache = Some(cache);
+        }
+        &self.brush_cache.as_ref().expect("cache initialized").points
     }
 }

@@ -57,6 +57,17 @@ public sealed unsafe class Engine : IDisposable
         }
     }
 
+    public uint ReadBrushPoints(ulong revision, uint index, uint start, BrushOptions options, Span<BrushPoint> destination)
+    {
+        lock (gate)
+        fixed (BrushPoint* points = destination)
+        {
+            uint written = 0;
+            Check(Native.ReadBrushPoints(Handle, revision, index, start, &options, points, (uint)destination.Length, &written));
+            return written;
+        }
+    }
+
     public byte[] Save()
     {
         lock (gate)

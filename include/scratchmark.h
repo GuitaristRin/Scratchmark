@@ -36,7 +36,18 @@ typedef struct SmStrokeInfo {
     uint32_t color, point_count, active, reserved;
 } SmStrokeInfo;
 
+/* M2 派生几何；参数、采样滞后与宿主配置保存责任参 spec/M2.md。 */
+typedef struct SmBrushOptions {
+    double alpha, min_width_ratio;
+    uint32_t pressure_enabled, reserved;
+} SmBrushOptions;
+typedef struct SmBrushPoint {
+    double x, y, width;
+} SmBrushPoint;
+#define SM_FEATURE_BRUSH_GEOMETRY UINT64_C(1)
+
 uint32_t SM_CALL sm_abi_version(void);
+uint64_t SM_CALL sm_features(void);
 SmStatus SM_CALL sm_create(SmHandle *out_handle);
 SmStatus SM_CALL sm_destroy(SmHandle handle);
 SmStatus SM_CALL sm_begin(SmHandle handle, double width, uint32_t color);
@@ -54,6 +65,9 @@ SmStatus SM_CALL sm_read_points(SmHandle handle, uint64_t revision,
 SmStatus SM_CALL sm_save(SmHandle handle, uint8_t *out_data,
     uint32_t capacity, uint32_t *out_required);
 SmStatus SM_CALL sm_load(SmHandle handle, const uint8_t *data, uint32_t length);
+SmStatus SM_CALL sm_read_brush_points(SmHandle handle, uint64_t revision,
+    uint32_t index, uint32_t start, const SmBrushOptions *options,
+    SmBrushPoint *out_points, uint32_t capacity, uint32_t *out_written);
 
 #ifdef __cplusplus
 }

@@ -5,6 +5,7 @@
 ## 加载与类型
 
 - 本轮仅 Windows x64、.NET 9，加载明确绝对路径的 SDK DLL；进程内固定同一个库，不卸载、不切换版本。创建文档前核对 ABI 1。MSVC、UWP、.NET Native 与其他 CPU 未验证。
+- SDK 0.2.0 扩展：创建前还核对 sm_features bit 0；`ReadBrushPoints` 与 BrushOptions / BrushPoint 沿用 [M2](M2.md) 的布局与行为，读取配置由宿主保存。旧 SDK 缺能力时提前拒绝。
 - C 类型仍以 `include/scratchmark.h` 为真源，C# 顺序布局、自然对齐、调用约定 Cdecl。SmHandle 与 revision 使用 ulong，长度与状态使用 uint；样本数组只在单次调用期间固定。
 - 数值 ID 不能收窄为 IntPtr。文档门面以 ulong 持有句柄，实现 IDisposable 与 finalizer 兜底；显式 Dispose 为正常释放途径。不把 ID 或 revision 当可持久化标识。
 

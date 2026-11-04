@@ -12,10 +12,13 @@
 _Static_assert(sizeof(SmSample) == 32, "SmSample ABI");
 _Static_assert(sizeof(SmState) == 32, "SmState ABI");
 _Static_assert(sizeof(SmStrokeInfo) == 56, "SmStrokeInfo ABI");
+_Static_assert(sizeof(SmBrushOptions) == 24, "SmBrushOptions ABI");
+_Static_assert(sizeof(SmBrushPoint) == 24, "SmBrushPoint ABI");
 
 /* 两种链接路径共用行为断言，避免静态宿主只验证能链接。 */
 #define API_LIST(X) \
     X(uint32_t, sm_abi_version, (void)) \
+    X(uint64_t, sm_features, (void)) \
     X(SmStatus, sm_create, (SmHandle *)) \
     X(SmStatus, sm_destroy, (SmHandle)) \
     X(SmStatus, sm_begin, (SmHandle, double, uint32_t)) \
@@ -28,7 +31,8 @@ _Static_assert(sizeof(SmStrokeInfo) == 56, "SmStrokeInfo ABI");
     X(SmStatus, sm_get_stroke, (SmHandle, uint64_t, uint32_t, SmStrokeInfo *)) \
     X(SmStatus, sm_read_points, (SmHandle, uint64_t, uint32_t, uint32_t, SmSample *, uint32_t, uint32_t *)) \
     X(SmStatus, sm_save, (SmHandle, uint8_t *, uint32_t, uint32_t *)) \
-    X(SmStatus, sm_load, (SmHandle, const uint8_t *, uint32_t))
+    X(SmStatus, sm_load, (SmHandle, const uint8_t *, uint32_t)) \
+    X(SmStatus, sm_read_brush_points, (SmHandle, uint64_t, uint32_t, uint32_t, const SmBrushOptions *, SmBrushPoint *, uint32_t, uint32_t *))
 #define FIELD(ret, name, args) ret (SM_CALL *name) args;
 struct Api { API_LIST(FIELD) };
 #undef FIELD
@@ -78,6 +82,38 @@ static int load_api(const char *path) {
     return 0;
 }
 #endif
+
+static int brush_smoke(void) {
+    REQUIRE((api.sm_features() & SM_FEATURE_BRUSH_GEOMETRY) != 0);
+    SmHandle handle = 0;
+    STATUS(api.sm_create(&handle), SM_OK);
+    STATUS(api.sm_begin(handle, 10.0, 0), SM_OK);
+    SmSample points[3] = {{0, 0, 0, 0, 1}, {8, 4, 1, 0.5f, 1}, {8, 4, 2, 0, 0}};
+    STATUS(api.sm_append(handle, points, 2), SM_OK);
+    SmState state;
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    SmBrushOptions options = {0.5, 0.25, 1, 0};
+    SmBrushPoint output[3];
+    uint32_t written = 0;
+    STATUS(api.sm_read_brush_points(handle, state.revision, 0, 0, &options, output, 3, &written), SM_OK);
+    REQUIRE(written == 2 && output[0].x == 0 && output[0].width == 2.5);
+    REQUIRE(output[1].x == 4 && output[1].y == 2 && output[1].width == 6.25);
+    STATUS(api.sm_append(handle, points + 2, 1), SM_OK);
+    written = 99; output[0].x = 99;
+    STATUS(api.sm_read_brush_points(handle, state.revision, 0, 0, &options, output, 3, &written), SM_STALE_REVISION);
+    REQUIRE(written == 99 && output[0].x == 99);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    STATUS(api.sm_read_brush_points(handle, state.revision, 0, 2, &options, output, 1, &written), SM_OK);
+    REQUIRE(written == 1 && output[0].x == 6 && output[0].y == 3 && output[0].width == 10);
+    options.alpha = 0;
+    STATUS(api.sm_read_brush_points(handle, state.revision, 0, 0, &options, output, 3, &written), SM_INVALID_ARGUMENT);
+    options.alpha = 1; options.pressure_enabled = 0;
+    STATUS(api.sm_read_brush_points(handle, state.revision, 0, 1, &options, output, 1, &written), SM_OK);
+    REQUIRE(output[0].x == 8 && output[0].y == 4 && output[0].width == 10);
+    STATUS(api.sm_cancel(handle), SM_OK);
+    STATUS(api.sm_destroy(handle), SM_OK);
+    return 0;
+}
 
 int main(int argc, char **argv) {
 #ifdef SM_STATIC
@@ -159,6 +195,7 @@ int main(int argc, char **argv) {
     REQUIRE(state.stroke_count == 2);
     STATUS(api.sm_destroy(second), SM_OK);
     STATUS(api.sm_destroy(second), SM_INVALID_HANDLE);
+    if (brush_smoke()) { return 1; }
     printf("native smoke: %u checks passed\n", checks);
     return 0;
 }

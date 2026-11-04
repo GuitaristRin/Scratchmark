@@ -1,4 +1,7 @@
-use crate::{Error, MAX_BATCH, MAX_POINTS, MAX_STROKES, Result, Sample, State, Stroke, StrokeInfo};
+use crate::{
+    BrushOptions, BrushPoint, Error, MAX_BATCH, MAX_POINTS, MAX_STROKES, Result, Sample, State,
+    Stroke, StrokeInfo,
+};
 
 #[derive(Debug)]
 pub struct Document {
@@ -167,6 +170,33 @@ impl Document {
             .ok_or(Error::InvalidArgument)?;
         let n = points.len().min(output.len());
         output[..n].copy_from_slice(&points[..n]);
+        Ok(n)
+    }
+
+    pub fn read_brush_points(
+        &mut self,
+        revision: u64,
+        index: u32,
+        start: u32,
+        options: BrushOptions,
+        output: &mut [BrushPoint],
+    ) -> Result<usize> {
+        options.validate()?;
+        let count = self.stroke(revision, index)?.0.points.len();
+        if start as usize > count {
+            return Err(Error::InvalidArgument);
+        }
+        let n = output.len().min(count - start as usize);
+        if n == 0 {
+            return Ok(0);
+        }
+        let stroke = if (index as usize) < self.strokes.len() {
+            &mut self.strokes[index as usize]
+        } else {
+            self.active.as_mut().ok_or(Error::InvalidArgument)?
+        };
+        let points = stroke.brush_points(options);
+        output[..n].copy_from_slice(&points[start as usize..start as usize + n]);
         Ok(n)
     }
 

@@ -35,11 +35,15 @@ internal static unsafe class Native
             }
             // 库保持到进程结束，避免 finalizer 或在途调用访问已卸载代码。
             if (AbiVersion() != 1) throw new NotSupportedException("Expected Scratchmark ABI 1.");
+            if (!NativeLibrary.TryGetExport(library, "sm_features", out _) || (Features() & 1) == 0)
+                throw new NotSupportedException("SDK does not support M2 brush geometry.");
         }
     }
 
     [DllImport(Library, EntryPoint = "sm_abi_version", CallingConvention = CallingConvention.Cdecl)]
     internal static extern uint AbiVersion();
+    [DllImport(Library, EntryPoint = "sm_features", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern ulong Features();
     [DllImport(Library, EntryPoint = "sm_create", CallingConvention = CallingConvention.Cdecl)]
     internal static extern Status Create(out ulong handle);
     [DllImport(Library, EntryPoint = "sm_destroy", CallingConvention = CallingConvention.Cdecl)]
@@ -67,4 +71,7 @@ internal static unsafe class Native
     internal static extern Status Save(ulong handle, byte* bytes, uint capacity, out uint required);
     [DllImport(Library, EntryPoint = "sm_load", CallingConvention = CallingConvention.Cdecl)]
     internal static extern Status LoadSnapshot(ulong handle, byte* bytes, uint length);
+    [DllImport(Library, EntryPoint = "sm_read_brush_points", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status ReadBrushPoints(ulong handle, ulong revision, uint index, uint start,
+        BrushOptions* options, BrushPoint* points, uint capacity, uint* written);
 }

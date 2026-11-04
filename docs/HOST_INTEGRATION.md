@@ -1,0 +1,49 @@
+# 宿主接入说明：供 PezMax-One 重构参考
+
+状态：SDK 0.2.0 实验接入说明，2026-11-04。本文件只约束 Scratchmark 能力事实，不替 PezMax-One 裁定架构或技术栈；用户负责其初步重构。本轮未修改该仓。
+
+## 可以先明确的边界
+
+- 引擎无窗口、页面渲染器、工具栏、文件 I/O、账户或同步。宿主接收原生输入，执行页面 / 屏幕变换并绘制；引擎处理样本、派生笔迹、编辑状态和快照。
+- 当前一个 Engine 是一份页面局部坐标的笔迹文档，没有业务文档 ID 或页管理。宿主维护稳定页面键与引擎 / 快照的对应关系；不能用当前窗口位置充当页面身份。
+- 坐标和笔宽使用同一页面单位。缩放、平移、DPI、旋转在宿主转换；屏幕坐标先变回页面坐标再 append。颜色为 0xRRGGBBAA，不能直接当作 ARGB。
+- Sample.TimeUs 是笔划内非递减的微秒值；Flags=1 表示真实压力可用，Pressure 在 [0,1]。没有真实压力时两字段均为 0，仍可正常书写；不要从设备名字推断能力或伪造压力。
+- 宿主自行协调指针所有者与捕获；捕获丢失 / 操作取消时 cancel，确认笔迹时 finish。输入源 / 页面 / 视口切换的交互策略仍由宿主定义。
+
+## 当前调用链
+
+1. 固定匹配目标平台的 SDK，检查 ABI 1 和 sm_features bit 0；加载库后不在文档存活期间卸载。Windows C# 现仅验收 .NET 9 / x64，不能据此假定 UWP / .NET Native 或其他宿主技术已支持。
+2. create → begin(width, color) → append(批次)。不为凑批额外等待；活动笔划期间可以读取原始点或平滑 / 压力派生点。
+3. get_state 取得 revision；同一 revision 读取 stroke metadata 和点，活动笔划的索引为 stroke_count。STALE_REVISION 时重新获取状态，不拼接不同 revision 的数据。
+4. 原始 read_points 不变。新 read_brush_points 输出 X / Y / Width，Width 是完整笔宽。配合原 color 呈现中心线与逐点线宽；单点为圆盘，像素抗锯齿仍由宿主完成。
+5. finish / cancel；空闲时 undo / redo。擦除、套索、形状工具尚未实现，不应先把相应宿主按钮接到不存在的接口。
+6. 空闲时 save 取得内存快照；文件写入、原子替换、保留上一份有效文件由宿主负责。重开时创建引擎并 load，之后可继续写。不要把 revision 或进程句柄持久化。
+
+## 平滑与压力配置要一并保留
+
+M2 是派生读取：同一份原始笔迹可用不同配置显示。快照格式 1 只存原始样本与笔宽 / 颜色，不存 Alpha、MinWidthRatio 或 PressureEnabled。需要外观保持时，宿主在自己的文档元数据中保留读取配置；本轮没有每笔专属笔刷样式持久化。
+
+示例配置仅供实验，不能当设备手感默认值：
+
+```csharp
+using var engine = new Scratchmark.Engine(absoluteDllPath);
+var brush = new Scratchmark.BrushOptions {
+    Alpha = 0.5, MinWidthRatio = 0.25, PressureEnabled = 1
+};
+// append 输入后：
+var state = engine.GetState();
+var info = engine.GetStroke(state.Revision, strokeIndex);
+var points = new Scratchmark.BrushPoint[info.PointCount];
+engine.ReadBrushPoints(state.Revision, strokeIndex, 0, brush, points);
+```
+
+Alpha=1 关闭坐标平滑；PressureEnabled=0 关闭压力映射，MinWidthRatio 仍须有效。默认零初始化的 BrushOptions 是无效配置，应显式填写。分段读取可复用宿主数组；相同配置复用引擎缓存，不必每次取整页。
+
+平滑使用因果低通，会有采样频率相关的滞后，笔尾不自动贴回原始末点；精确定义参 `spec/M2.md`。不得把离线示例图或 Rust 测试当作实际手感验收。
+
+## 版本与平台事实
+
+- 原导出 / ABI 1 / 快照格式 1 保持，SDK 0.2.0 新增能力位及派生读取；新绑定会提前拒绝不支持此能力的旧库。
+- Windows GNU 原生动态、静态和 .NET 9 C# 有独立宿主运行证据。Linux 旧阶段已有动态路径证据，M2 的 Linux 包仍需复跑；MSVC / UWP / .NET Native 未验证。
+- Android SDK、Studio / Kotlin 和 NDK 已就位；Rust Android 标准库、JNI / Kotlin 引擎调用与设备体验未验证。当前 Android 暂缓，不作为本轮主功能阻塞。
+- 格式、算法、呈现后端与长期兼容均未正式冻结。宿主可先隔离引擎接入点，避免把实验布局散落到业务 / UI 代码；不需要先建立 submodule。

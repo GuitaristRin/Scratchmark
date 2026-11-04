@@ -2,13 +2,14 @@
 
 可嵌入的手写与页面批注模块。
 
-Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔迹与批注。当前提供 M0 实验核心与 C ABI；能力与验证边界见 [当前状态](docs/STATE_2026-11-04.md)。
+Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔迹与批注。当前 SDK 0.2.0 提供实验核心、C ABI 与 .NET 9 C# 适配；能力与验证边界见 [当前状态](docs/STATE_2026-11-04.md)。
 
 ## 当前范围
 
 - 批量样本输入、活动笔划、固定宽度折线与边界读取、提交 / 取消、整笔撤销重做。
 - 可编辑快照导出 / 导入；宿主执行实际文件读写与像素呈现。
-- Windows / Linux 独立动态库加载、Windows 静态链接与 .NET 9 C# 实验适配；平滑、压力笔刷、设备前端与手感仍未实现。
+- 可配置在线平滑、逐点压力笔宽的派生读取，原始样本与格式 1 快照保持；显示配置由宿主保留。
+- Windows 原生动态 / 静态与 .NET 9 C# 实验适配；Linux 旧版动态路径已有证据，本轮扩展待复跑。设备前端与手感未验证。
 
 PezMax-One 的课本／试卷批注是明确的后续接入场景。二进制 SDK 接入不必依赖 Git submodule，源码依赖作为另一种可选方式；本阶段不修改 PezMax-One，也不建立 submodule。
 
@@ -24,6 +25,8 @@ Windows SDK 内附 `verify-sdk.ps1`，可在仅有包内容与 GCC 的目录验�
 
 加上 `-IncludeCSharp` 可用已有 .NET 9 SDK 离线构建并运行 C# 宿主，验证共享夹具、编辑与恢复、布局、错误路径和释放时序；调用契约见 [C# 实验规格](spec/M1-CSHARP.md)。Android 的具体缺口见 [前置核查](docs/ANDROID_PREREQUISITES.md)。
 
+PezMax-One 重构可参考 [宿主接入说明](docs/HOST_INTEGRATION.md)，其中明确页面坐标、输入生命周期、笔刷配置保存责任及未验证平台。Android 当前暂缓，NDK 已按用户提供的包部署。
+
 ## 本地参考资料
 
 完整 主流移动便签分析资料保存在 `本地参考/`，包括外部行为观察代码、APK、原生库、工具与已有分析文档。整个 `Refs/` 已被 Git 忽略，不随仓库推送。
@@ -36,6 +39,8 @@ Git 远端使用 SSH：`git@github.com:GuitaristRin/Scratchmark.git`。
 - [产品与架构方向裁定 - Canon](docs/DECISIONS_2026-11-03.md)
 - [M0 实施任务卡 - Canon](docs/IMPLEMENTATION_M0.md)
 - [M1 宿主适配任务卡 - Canon](docs/IMPLEMENTATION_M1.md)
+- [M2 平滑与压力笔刷任务卡 - Canon](docs/IMPLEMENTATION_M2.md)
+- [M2 派生几何规格 - Canon](spec/M2.md)
 - [M0 实验规格 - Canon](spec/M0.md)
 - [C 接口声明](include/scratchmark.h)
 - [SDK 使用说明](docs/SDK_README.md)

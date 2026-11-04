@@ -2,7 +2,9 @@ use crate::{
     buffers::{input, output, required},
     create, guard, with_doc,
 };
-use scratchmark_core::{Error, MAX_BATCH, MAX_POINTS, MAX_SNAPSHOT, Sample, State, StrokeInfo};
+use scratchmark_core::{
+    BrushOptions, BrushPoint, Error, MAX_BATCH, MAX_POINTS, MAX_SNAPSHOT, Sample, State, StrokeInfo,
+};
 
 /// # Safety
 /// 输出指针必须满足 spec/M0.md 的可写、对齐与独占约束。
@@ -122,4 +124,34 @@ pub unsafe extern "C" fn sm_load(handle: u64, data: *const u8, length: u32) -> u
 }
 
 #[cfg(test)]
+mod brush_tests;
+#[cfg(test)]
 mod tests;
+
+/// # Safety
+/// 配置有效、对齐，输出区独占且互不重叠；约束参 spec/M2.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_read_brush_points(
+    handle: u64,
+    revision: u64,
+    index: u32,
+    start: u32,
+    options: *const BrushOptions,
+    out_points: *mut BrushPoint,
+    capacity: u32,
+    out_written: *mut u32,
+) -> u32 {
+    guard(|| {
+        required(options)?;
+        required(out_written)?;
+        let options = unsafe { options.read() };
+        let points = unsafe { output(out_points, capacity, MAX_POINTS)? };
+        let n = with_doc(handle, |d| {
+            d.read_brush_points(revision, index, start, options, points)
+        })?;
+        unsafe {
+            out_written.write(n as u32);
+        }
+        Ok(())
+    })
+}

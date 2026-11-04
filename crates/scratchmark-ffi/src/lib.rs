@@ -75,6 +75,11 @@ pub extern "C" fn sm_abi_version() -> u32 {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn sm_features() -> u64 {
+    1
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn sm_destroy(handle: u64) -> u32 {
     guard(|| destroy(handle))
 }
