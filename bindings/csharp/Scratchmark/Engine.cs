@@ -68,6 +68,16 @@ public sealed unsafe class Engine : IDisposable
         }
     }
 
+    public ulong GetPageId()
+    {
+        lock (gate) { Check(Native.GetPageId(Handle, out ulong pageId)); return pageId; }
+    }
+
+    public void SetPageId(ulong pageId)
+    {
+        lock (gate) Check(Native.SetPageId(Handle, pageId));
+    }
+
     public byte[] Save()
     {
         lock (gate)

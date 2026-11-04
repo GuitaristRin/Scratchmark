@@ -44,6 +44,7 @@ internal static unsafe partial class Program
         NativeErrors(fixture);
         Lifecycle(args[0]);
         BrushGeometry(args[0], fixture);
+        PageViewport(args[0], fixture);
         Console.WriteLine($"C# smoke: {checks} checks passed");
         return 0;
     }

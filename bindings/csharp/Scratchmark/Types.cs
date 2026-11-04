@@ -48,3 +48,60 @@ public struct BrushPoint
 {
     public double X, Y, Width;
 }
+
+/* M3 视口由宿主保存；映射与页面域约束参 spec/M3.md。 */
+[StructLayout(LayoutKind.Sequential)]
+public struct Viewport
+{
+    public double Scale, OffsetX, OffsetY;
+    public uint Reserved;
+
+    public static Viewport Identity => new() { Scale = 1.0 };
+
+    public readonly Point PageToViewport(Point page)
+    {
+        Status status = Native.PageToViewport(this, page, out Point output);
+        if (status != Status.Ok) throw new ScratchmarkException(status);
+        return output;
+    }
+
+    public readonly Point ViewportToPage(Point viewport)
+    {
+        Status status = Native.ViewportToPage(this, viewport, out Point output);
+        if (status != Status.Ok) throw new ScratchmarkException(status);
+        return output;
+    }
+
+    public readonly double WidthPageToViewport(double width)
+    {
+        Status status = Native.WidthPageToViewport(this, width, out double output);
+        if (status != Status.Ok) throw new ScratchmarkException(status);
+        return output;
+    }
+
+    public readonly double WidthViewportToPage(double width)
+    {
+        Status status = Native.WidthViewportToPage(this, width, out double output);
+        if (status != Status.Ok) throw new ScratchmarkException(status);
+        return output;
+    }
+
+    public readonly Bounds BoundsPageToViewport(Bounds page)
+    {
+        Status status = Native.BoundsPageToViewport(this, page, out Bounds output);
+        if (status != Status.Ok) throw new ScratchmarkException(status);
+        return output;
+    }
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct Point
+{
+    public double X, Y;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct Bounds
+{
+    public double MinX, MinY, MaxX, MaxY;
+}
