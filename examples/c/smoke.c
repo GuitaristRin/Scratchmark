@@ -3,9 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef _WIN32
+#if !defined(SM_STATIC) && defined(_WIN32)
 #include <windows.h>
-#else
+#elif !defined(SM_STATIC)
 #include <dlfcn.h>
 #endif
 
@@ -13,7 +13,7 @@ _Static_assert(sizeof(SmSample) == 32, "SmSample ABI");
 _Static_assert(sizeof(SmState) == 32, "SmState ABI");
 _Static_assert(sizeof(SmStrokeInfo) == 56, "SmStrokeInfo ABI");
 
-/* 只通过运行时符号加载，不链接引擎源码或导入库。 */
+/* 两种链接路径共用行为断言，避免静态宿主只验证能链接。 */
 #define API_LIST(X) \
     X(uint32_t, sm_abi_version, (void)) \
     X(SmStatus, sm_create, (SmHandle *)) \
@@ -46,6 +46,14 @@ static unsigned checks;
         __LINE__, (unsigned)actual, (unsigned)(expected)); return 1; } \
 } while (0)
 
+#ifdef SM_STATIC
+static int load_api(void) {
+#define BIND(ret, name, args) api.name = name;
+    API_LIST(BIND)
+#undef BIND
+    return 0;
+}
+#else
 static int load_api(const char *path) {
 #ifdef _WIN32
     HMODULE library = LoadLibraryExA(path, NULL,
@@ -69,10 +77,18 @@ static int load_api(const char *path) {
     /* 示例让库保持到进程结束，防止卸载时仍有函数指针被使用。 */
     return 0;
 }
+#endif
 
 int main(int argc, char **argv) {
+#ifdef SM_STATIC
+    if (argc != 2) { fprintf(stderr, "usage: smoke SNAPSHOT_PATH\n"); return 2; }
+    const char *snapshot_path = argv[1];
+    if (load_api()) { return 1; }
+#else
     if (argc != 3) { fprintf(stderr, "usage: smoke ABS_LIBRARY SNAPSHOT_PATH\n"); return 2; }
+    const char *snapshot_path = argv[2];
     if (load_api(argv[1])) { return 1; }
+#endif
     REQUIRE(api.sm_abi_version() == 1);
     STATUS(api.sm_create(NULL), SM_INVALID_ARGUMENT);
     SmHandle first = 0;
@@ -103,14 +119,14 @@ int main(int argc, char **argv) {
     STATUS(api.sm_save(first, bytes, required - 1, &required), SM_BUFFER_TOO_SMALL);
     REQUIRE(bytes[0] == 0xaa && bytes[95] == 0xaa);
     STATUS(api.sm_save(first, bytes, required, &required), SM_OK);
-    FILE *file = fopen(argv[2], "wb");
+    FILE *file = fopen(snapshot_path, "wb");
     REQUIRE(file != NULL);
     REQUIRE(fwrite(bytes, 1, required, file) == required);
     REQUIRE(fclose(file) == 0);
     STATUS(api.sm_destroy(first), SM_OK);
     STATUS(api.sm_get_state(first, &state), SM_INVALID_HANDLE);
     memset(bytes, 0, required);
-    file = fopen(argv[2], "rb");
+    file = fopen(snapshot_path, "rb");
     REQUIRE(file != NULL);
     REQUIRE(fread(bytes, 1, required, file) == required);
     REQUIRE(fgetc(file) == EOF);

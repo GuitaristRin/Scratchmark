@@ -2,7 +2,7 @@
 
 可嵌入的手写与页面批注模块。
 
-Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔迹与批注。当前进入 M0 工程阶段：无 UI 的 Rust 核心与实验性 C ABI；能力与验证边界见 [当前状态](docs/STATE_2026-11-03.md)。
+Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔迹与批注。当前提供 M0 实验核心与 C ABI；能力与验证边界见 [当前状态](docs/STATE_2026-11-04.md)。
 
 ## 当前范围
 
@@ -20,7 +20,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 .\tools\build-sdk.ps1
 ```
 
-SDK 内附 `verify-sdk.ps1`，可在仅有包内容与 clang 的目录验证动态加载，不要求检出引擎源码。当前打包脚本验收目标为 Windows x64 GNU；Android / Linux 尚无构建与运行验收。接口与快照均为实验版，不代表正式兼容承诺。
+Windows SDK 内附 `verify-sdk.ps1`，可在仅有包内容与 GCC 的目录验证动态加载及静态链接，不要求检出引擎源码。Linux x86_64 GNU 已有独立动态宿主验收，使用 `tools/build-sdk.sh` 与 `tools/verify-sdk.sh`；Linux 静态接入和 Android 尚未验收。接口与快照均为实验版，不代表正式兼容承诺。
 
 ## 本地参考资料
 
@@ -36,7 +36,7 @@ Git 远端使用 SSH：`git@github.com:GuitaristRin/Scratchmark.git`。
 - [M0 实验规格 - Canon](spec/M0.md)
 - [C 接口声明](include/scratchmark.h)
 - [SDK 使用说明](docs/SDK_README.md)
-- [当前状态](docs/STATE_2026-11-03.md)
+- [当前状态](docs/STATE_2026-11-04.md)
 - [主流移动便签样本探索](docs/REFERENCE_FINDINGS.md)
 - [多输入与语言选型提案 - Draft](docs/PROPOSALS_2026-11-03.md)
 - [输入与宿主约束核查 - Draft](docs/research/2026-11-03-input-and-host-evidence.md)

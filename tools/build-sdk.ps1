@@ -19,10 +19,11 @@ try {
     $output = [IO.Path]::GetFullPath((Join-Path $projectRoot $OutputRoot))
     $sdk = Join-Path $output $name
     New-Item -ItemType Directory -Path $sdk -ErrorAction Stop | Out-Null
-    foreach ($dir in @('bin', 'include', 'examples', 'spec')) {
+    foreach ($dir in @('bin', 'lib', 'include', 'examples', 'spec')) {
         New-Item -ItemType Directory -Path (Join-Path $sdk $dir) | Out-Null
     }
     Copy-Item -LiteralPath 'target/release/scratchmark.dll' -Destination (Join-Path $sdk 'bin')
+    Copy-Item -LiteralPath 'target/release/libscratchmark.a' -Destination (Join-Path $sdk 'lib')
     Copy-Item -LiteralPath 'include/scratchmark.h' -Destination (Join-Path $sdk 'include')
     Copy-Item -LiteralPath 'examples/c/smoke.c' -Destination (Join-Path $sdk 'examples')
     Copy-Item -LiteralPath 'spec/M0.md' -Destination (Join-Path $sdk 'spec')

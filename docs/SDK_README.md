@@ -5,9 +5,10 @@
 ## 包内容
 
 - `bin/scratchmark.dll`：Windows x64 GNU 目标的动态库。
+- `lib/libscratchmark.a`：同一构建的静态库，仍需链接 Windows 系统库。
 - `include/scratchmark.h`：C 接口与类型声明，使用 C 调用约定。
-- `examples/smoke.c`：只靠动态加载的独立宿主示例，不链接引擎源码。
-- `verify-sdk.ps1`：核对 SHA-256 后编译并运行该示例，需要已安装的 clang。
+- `examples/smoke.c`：独立宿主示例，默认动态加载；定义 `SM_STATIC` 时直接静态链接，共用行为检查。
+- `verify-sdk.ps1`：核对 SHA-256 后编译并运行两种宿主，需要已安装的 GNU 目标 C 编译器与 objdump，默认使用 gcc。
 - `build-info.json`：版本、目标、源码提交及 dirty 标记、编译器身份。
 - `SHA256SUMS`：包内原始文件的校验清单，不含清单自身与后续验证产物。
 
@@ -18,6 +19,10 @@
 ```
 
 会创建唯一的 `verification-*` 目录，记录实际读写的快照文件，既有文件不会被覆盖。可复制整个 SDK 目录到没有引擎源码的路径再次运行，不要求 Rust 或 Git submodule。
+
+静态链接使用 `lib/libscratchmark.a -lkernel32 -lntdll -luserenv -lws2_32 -ldbghelp`；系统库清单来自本目标的 `cargo rustc -p scratchmark-ffi --release -- --print native-static-libs`，不可外推到其他目标。验收脚本检查静态宿主 PE 导入表，并比对两种宿主生成的快照。
+
+Linux x86_64 GNU 使用 `tools/build-sdk.sh` 与 `tools/verify-sdk.sh`，包内动态库为 `bin/libscratchmark.so`，静态库为 `lib/libscratchmark.a`。该路径已有动态加载证据，静态链接尚未验证；详见源码仓库 `docs/STATE_2026-11-04.md`。
 
 ## 调用顺序
 
@@ -34,6 +39,6 @@
 
 支持固定宽度折线、活动笔迹、边界、整笔历史、可编辑快照。没有窗口或绘图后端；输入压力仅记录，不改变线宽。平滑、预测、擦除、套索、页面导航和设备防误触未实现。
 
-此包仅验证 Windows x64 原生 C 动态调用，不代表 UWP / .NET Native、C#、Android JNI / AAR 或 Linux 已验收。SO 必须按目标系统和 CPU 另行构建，不可通过改扩展名获得。静态库可由相同工程构建，本包暂不包含静态链接接入示例。
+Windows 包验证 Windows x64 GNU 原生 C 动态调用与静态链接，不代表 MSVC、UWP / .NET Native、C# 或 Android JNI / AAR 已验收。SO 必须按目标系统和 CPU 另行构建，不可通过改扩展名获得。
 
 实际呈现由前端完成；此包不能证明手感或端到端延迟。未进行性能基准测试，不承诺每秒点数或调用开销比例。授权与发布策略仍待确定，本次交付是本地开发验收包。
