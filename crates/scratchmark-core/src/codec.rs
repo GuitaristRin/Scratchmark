@@ -1,14 +1,24 @@
 use crate::{Document, Error, MAX_POINTS, MAX_SNAPSHOT, MAX_STROKES, Result, Sample, Stroke};
 
 const MAGIC: &[u8; 8] = b"SCRATCH\0";
+// 格式 2 用独立魔数而非版本递增：旧魔数仅接受版本 1，未知版本仍被既有断言拒绝。
+const MAGIC_V2: &[u8; 8] = b"SCRATCH2";
 
 impl Document {
     pub fn save(&self) -> Result<Vec<u8>> {
         self.ensure_idle()?;
         let mut bytes = Vec::new();
-        bytes.extend_from_slice(MAGIC);
-        bytes.extend_from_slice(&1u32.to_le_bytes());
+        if self.page_id == 0 {
+            bytes.extend_from_slice(MAGIC);
+            bytes.extend_from_slice(&1u32.to_le_bytes());
+        } else {
+            bytes.extend_from_slice(MAGIC_V2);
+            bytes.extend_from_slice(&2u32.to_le_bytes());
+        }
         bytes.extend_from_slice(&(self.strokes.len() as u32).to_le_bytes());
+        if self.page_id != 0 {
+            bytes.extend_from_slice(&self.page_id.to_le_bytes());
+        }
         for s in &self.strokes {
             bytes.extend_from_slice(&s.width.to_le_bytes());
             bytes.extend_from_slice(&s.color.to_le_bytes());
@@ -36,25 +46,44 @@ impl Reader<'_> {
     fn u32(&mut self) -> Result<u32> {
         Ok(u32::from_le_bytes(self.take()?))
     }
+    fn u64(&mut self) -> Result<u64> {
+        Ok(u64::from_le_bytes(self.take()?))
+    }
     fn f64(&mut self) -> Result<f64> {
         Ok(f64::from_le_bytes(self.take()?))
     }
 }
 
-pub(crate) fn decode(bytes: &[u8]) -> Result<(Vec<Stroke>, usize)> {
+pub(crate) struct Decoded {
+    pub strokes: Vec<Stroke>,
+    pub total: usize,
+    pub page_id: u64,
+}
+
+pub(crate) fn decode(bytes: &[u8]) -> Result<Decoded> {
     if bytes.len() > MAX_SNAPSHOT {
         return Err(Error::LimitExceeded);
     }
     let mut r = Reader(bytes);
-    if &r.take::<8>()? != MAGIC {
+    let magic = r.take::<8>()?;
+    let mut page_id = 0u64;
+    if magic == *MAGIC {
+        if r.u32()? != 1 {
+            return Err(Error::UnsupportedVersion);
+        }
+    } else if magic == *MAGIC_V2 {
+        if r.u32()? != 2 {
+            return Err(Error::UnsupportedVersion);
+        }
+    } else {
         return Err(Error::InvalidData);
-    }
-    if r.u32()? != 1 {
-        return Err(Error::UnsupportedVersion);
     }
     let count = r.u32()? as usize;
     if count > MAX_STROKES {
         return Err(Error::LimitExceeded);
+    }
+    if magic == *MAGIC_V2 {
+        page_id = r.u64()?;
     }
     let mut strokes = Vec::new();
     let mut total = 0;
@@ -93,5 +122,9 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<(Vec<Stroke>, usize)> {
     if !r.0.is_empty() {
         return Err(Error::InvalidData);
     }
-    Ok((strokes, total))
+    Ok(Decoded {
+        strokes,
+        total,
+        page_id,
+    })
 }

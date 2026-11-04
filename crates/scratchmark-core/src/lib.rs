@@ -2,13 +2,17 @@
 mod brush;
 mod codec;
 mod document;
+mod viewport;
 
 pub use brush::{BrushOptions, BrushPoint};
 pub use document::Document;
+pub use viewport::{Bounds, Point, Viewport};
 pub const MAX_BATCH: usize = 65_536;
 pub const MAX_POINTS: usize = 1_000_000;
 pub const MAX_STROKES: usize = 100_000;
 pub const MAX_SNAPSHOT: usize = 64 * 1024 * 1024;
+/// 页面局部坐标域上限，与 Sample 一致；视口变换在边界处同样拒绝越界值。
+pub const MAX_COORD: f64 = 1e9;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u32)]
@@ -39,8 +43,8 @@ impl Sample {
     pub fn is_valid(&self) -> bool {
         self.x.is_finite()
             && self.y.is_finite()
-            && self.x.abs() <= 1e9
-            && self.y.abs() <= 1e9
+            && self.x.abs() <= MAX_COORD
+            && self.y.abs() <= MAX_COORD
             && self.pressure.is_finite()
             && match self.flags {
                 0 => self.pressure == 0.0,
