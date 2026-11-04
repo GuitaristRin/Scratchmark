@@ -9,6 +9,8 @@
 - `include/scratchmark.h`：C 接口与类型声明，使用 C 调用约定。
 - `examples/smoke.c`：独立宿主示例，默认动态加载；定义 `SM_STATIC` 时直接静态链接，共用行为检查。
 - `verify-sdk.ps1`：核对 SHA-256 后编译并运行两种宿主，需要已安装的 GNU 目标 C 编译器与 objdump，默认使用 gcc。
+- `bindings/csharp/`、`examples/csharp/`：实验 C# 适配层源码及控制台宿主，无第三方 NuGet 包；`spec/M1-CSHARP.md` 约束托管行为。
+- `spec/fixtures/simple-v1.hex`：来自仓库共享真源的独立快照夹具。
 - `build-info.json`：版本、目标、源码提交及 dirty 标记、编译器身份。
 - `SHA256SUMS`：包内原始文件的校验清单，不含清单自身与后续验证产物。
 
@@ -16,6 +18,8 @@
 
 ```powershell
 .\verify-sdk.ps1
+# 额外运行 C# 宿主，需要已有 .NET 9 SDK；禁用外部 NuGet 源。
+.\verify-sdk.ps1 -IncludeCSharp
 ```
 
 会创建唯一的 `verification-*` 目录，记录实际读写的快照文件，既有文件不会被覆盖。可复制整个 SDK 目录到没有引擎源码的路径再次运行，不要求 Rust 或 Git submodule。
@@ -39,6 +43,8 @@ Linux x86_64 GNU 使用 `tools/build-sdk.sh` 与 `tools/verify-sdk.sh`，包内�
 
 支持固定宽度折线、活动笔迹、边界、整笔历史、可编辑快照。没有窗口或绘图后端；输入压力仅记录，不改变线宽。平滑、预测、擦除、套索、页面导航和设备防误触未实现。
 
-Windows 包验证 Windows x64 GNU 原生 C 动态调用与静态链接，不代表 MSVC、UWP / .NET Native、C# 或 Android JNI / AAR 已验收。SO 必须按目标系统和 CPU 另行构建，不可通过改扩展名获得。
+Windows 包验证 Windows x64 GNU 原生 C 动态调用与静态链接，以及 .NET 9 C# 调用。C# 用法为 `using var engine = new Scratchmark.Engine(absoluteDllPath)`；每个文档协调调用与 Dispose，错误状态由 `ScratchmarkException.Status` 保留。`STALE_REVISION` 由调用方重新获取状态；文件事务仍由宿主负责。
+
+MSVC、UWP / .NET Native 与 Android JNI / AAR 尚未验收。SO 必须按目标系统和 CPU 另行构建，不可通过改扩展名获得。C# 的 INTERNAL 停用 / 销毁策略及 finalizer 兜底已有代码，但未通过故障注入或强制 GC 验证；正常调用与显式释放已实测。
 
 实际呈现由前端完成；此包不能证明手感或端到端延迟。未进行性能基准测试，不承诺每秒点数或调用开销比例。授权与发布策略仍待确定，本次交付是本地开发验收包。

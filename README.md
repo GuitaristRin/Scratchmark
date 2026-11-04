@@ -8,7 +8,7 @@ Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔�
 
 - 批量样本输入、活动笔划、固定宽度折线与边界读取、提交 / 取消、整笔撤销重做。
 - 可编辑快照导出 / 导入；宿主执行实际文件读写与像素呈现。
-- 独立动态库加载与 SDK 打包验证；平滑、压力笔刷、设备前端与手感仍未实现。
+- Windows / Linux 独立动态库加载、Windows 静态链接与 .NET 9 C# 实验适配；平滑、压力笔刷、设备前端与手感仍未实现。
 
 PezMax-One 的课本／试卷批注是明确的后续接入场景。二进制 SDK 接入不必依赖 Git submodule，源码依赖作为另一种可选方式；本阶段不修改 PezMax-One，也不建立 submodule。
 
@@ -22,6 +22,8 @@ cargo clippy --workspace --all-targets -- -D warnings
 
 Windows SDK 内附 `verify-sdk.ps1`，可在仅有包内容与 GCC 的目录验证动态加载及静态链接，不要求检出引擎源码。Linux x86_64 GNU 已有独立动态宿主验收，使用 `tools/build-sdk.sh` 与 `tools/verify-sdk.sh`；Linux 静态接入和 Android 尚未验收。接口与快照均为实验版，不代表正式兼容承诺。
 
+加上 `-IncludeCSharp` 可用已有 .NET 9 SDK 离线构建并运行 C# 宿主，验证共享夹具、编辑与恢复、布局、错误路径和释放时序；调用契约见 [C# 实验规格](spec/M1-CSHARP.md)。Android 的具体缺口见 [前置核查](docs/ANDROID_PREREQUISITES.md)。
+
 ## 本地参考资料
 
 完整 主流移动便签分析资料保存在 `本地参考/`，包括外部行为观察代码、APK、原生库、工具与已有分析文档。整个 `Refs/` 已被 Git 忽略，不随仓库推送。
@@ -33,6 +35,7 @@ Git 远端使用 SSH：`git@github.com:GuitaristRin/Scratchmark.git`。
 - [立项任务卡](docs/PROJECT_BRIEF.md)
 - [产品与架构方向裁定 - Canon](docs/DECISIONS_2026-11-03.md)
 - [M0 实施任务卡 - Canon](docs/IMPLEMENTATION_M0.md)
+- [M1 宿主适配任务卡 - Canon](docs/IMPLEMENTATION_M1.md)
 - [M0 实验规格 - Canon](spec/M0.md)
 - [C 接口声明](include/scratchmark.h)
 - [SDK 使用说明](docs/SDK_README.md)

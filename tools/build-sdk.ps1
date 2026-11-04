@@ -19,7 +19,7 @@ try {
     $output = [IO.Path]::GetFullPath((Join-Path $projectRoot $OutputRoot))
     $sdk = Join-Path $output $name
     New-Item -ItemType Directory -Path $sdk -ErrorAction Stop | Out-Null
-    foreach ($dir in @('bin', 'lib', 'include', 'examples', 'spec')) {
+    foreach ($dir in @('bin', 'lib', 'include', 'examples', 'spec', 'examples/csharp', 'bindings/csharp/Scratchmark', 'spec/fixtures')) {
         New-Item -ItemType Directory -Path (Join-Path $sdk $dir) | Out-Null
     }
     Copy-Item -LiteralPath 'target/release/scratchmark.dll' -Destination (Join-Path $sdk 'bin')
@@ -27,6 +27,15 @@ try {
     Copy-Item -LiteralPath 'include/scratchmark.h' -Destination (Join-Path $sdk 'include')
     Copy-Item -LiteralPath 'examples/c/smoke.c' -Destination (Join-Path $sdk 'examples')
     Copy-Item -LiteralPath 'spec/M0.md' -Destination (Join-Path $sdk 'spec')
+    Copy-Item -LiteralPath 'spec/M1-CSHARP.md' -Destination (Join-Path $sdk 'spec')
+    Copy-Item -LiteralPath 'spec/fixtures/simple-v1.hex' -Destination (Join-Path $sdk 'spec/fixtures')
+    Copy-Item -LiteralPath 'bindings/csharp/NuGet.Config' -Destination (Join-Path $sdk 'bindings/csharp')
+    foreach ($file in @('Scratchmark.csproj', 'Types.cs', 'Native.cs', 'Engine.cs')) {
+        Copy-Item -LiteralPath (Join-Path 'bindings/csharp/Scratchmark' $file) -Destination (Join-Path $sdk 'bindings/csharp/Scratchmark')
+    }
+    foreach ($file in @('Scratchmark.Smoke.csproj', 'Program.cs', 'NativeErrors.cs')) {
+        Copy-Item -LiteralPath (Join-Path 'examples/csharp' $file) -Destination (Join-Path $sdk 'examples/csharp')
+    }
     Copy-Item -LiteralPath 'docs/SDK_README.md' -Destination (Join-Path $sdk 'README.md')
     Copy-Item -LiteralPath 'tools/verify-sdk.ps1' -Destination (Join-Path $sdk 'verify-sdk.ps1')
     $head = & git rev-parse HEAD
@@ -45,6 +54,8 @@ try {
     $hashes | Set-Content -LiteralPath (Join-Path $sdk 'SHA256SUMS') -Encoding ASCII
     $archive = "$sdk.zip"
     Compress-Archive -LiteralPath $sdk -DestinationPath $archive -ErrorAction Stop
+    & tar -tf $archive | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'SDK archive listing failed' }
     Write-Output $sdk
     Write-Output $archive
 } finally { Pop-Location }

@@ -16,3 +16,9 @@ __pycache__/
 /target/
 /dist/
 /artifacts/
+
+# 托管宿主本地构建。
+/bindings/csharp/**/bin/
+/bindings/csharp/**/obj/
+/examples/csharp/bin/
+/examples/csharp/obj/

@@ -1,0 +1,70 @@
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+
+[assembly: InternalsVisibleTo("Scratchmark.Smoke")]
+
+namespace Scratchmark;
+
+internal static unsafe class Native
+{
+    private const string Library = "scratchmark";
+    private static readonly object Gate = new();
+    private static IntPtr library;
+    private static string? loadedPath;
+
+    static Native() => NativeLibrary.SetDllImportResolver(typeof(Native).Assembly, Resolve);
+
+    private static IntPtr Resolve(string name, Assembly assembly, DllImportSearchPath? searchPath)
+        => name == Library ? library : IntPtr.Zero;
+
+    internal static void Load(string path)
+    {
+        if (!OperatingSystem.IsWindows() || RuntimeInformation.ProcessArchitecture != Architecture.X64)
+            throw new PlatformNotSupportedException("M1 requires Windows x64.");
+        if (!Path.IsPathFullyQualified(path)) throw new ArgumentException("Absolute DLL path required.", nameof(path));
+        path = Path.GetFullPath(path);
+        lock (Gate)
+        {
+            if (library != IntPtr.Zero && !string.Equals(path, loadedPath, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("A different SDK is already loaded in this process.");
+            if (library == IntPtr.Zero)
+            {
+                library = NativeLibrary.Load(path);
+                loadedPath = path;
+            }
+            // 库保持到进程结束，避免 finalizer 或在途调用访问已卸载代码。
+            if (AbiVersion() != 1) throw new NotSupportedException("Expected Scratchmark ABI 1.");
+        }
+    }
+
+    [DllImport(Library, EntryPoint = "sm_abi_version", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern uint AbiVersion();
+    [DllImport(Library, EntryPoint = "sm_create", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status Create(out ulong handle);
+    [DllImport(Library, EntryPoint = "sm_destroy", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status Destroy(ulong handle);
+    [DllImport(Library, EntryPoint = "sm_begin", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status Begin(ulong handle, double width, uint color);
+    [DllImport(Library, EntryPoint = "sm_append", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status Append(ulong handle, Sample* samples, uint count);
+    [DllImport(Library, EntryPoint = "sm_finish", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status Finish(ulong handle);
+    [DllImport(Library, EntryPoint = "sm_cancel", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status Cancel(ulong handle);
+    [DllImport(Library, EntryPoint = "sm_undo", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status Undo(ulong handle);
+    [DllImport(Library, EntryPoint = "sm_redo", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status Redo(ulong handle);
+    [DllImport(Library, EntryPoint = "sm_get_state", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status GetState(ulong handle, out State state);
+    [DllImport(Library, EntryPoint = "sm_get_stroke", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status GetStroke(ulong handle, ulong revision, uint index, out StrokeInfo info);
+    [DllImport(Library, EntryPoint = "sm_read_points", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status ReadPoints(ulong handle, ulong revision, uint index, uint start,
+        Sample* points, uint capacity, uint* written);
+    [DllImport(Library, EntryPoint = "sm_save", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status Save(ulong handle, byte* bytes, uint capacity, out uint required);
+    [DllImport(Library, EntryPoint = "sm_load", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status LoadSnapshot(ulong handle, byte* bytes, uint length);
+}

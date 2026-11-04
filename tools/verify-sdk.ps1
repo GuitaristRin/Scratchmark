@@ -1,8 +1,11 @@
-param([string]$SdkRoot = $PSScriptRoot, [string]$CCompiler = 'gcc')
+param([string]$SdkRoot = $PSScriptRoot, [string]$CCompiler = 'gcc', [switch]$IncludeCSharp)
 $ErrorActionPreference = 'Stop'
 $sdk = (Resolve-Path -LiteralPath $SdkRoot).Path
 $info = Get-Content -LiteralPath (Join-Path $sdk 'build-info.json') -Raw | ConvertFrom-Json
 if ($info.target -ne 'x86_64-pc-windows-gnu') { throw 'Unsupported verification host' }
+if (Get-ChildItem -LiteralPath $sdk -Recurse -File | Where-Object { $_.Extension -eq '.rs' -or $_.Name -eq 'Cargo.toml' }) {
+    throw 'Standalone SDK must not contain engine source'
+}
 foreach ($line in Get-Content -LiteralPath (Join-Path $sdk 'SHA256SUMS')) {
     if ($line -notmatch '^([0-9a-f]{64})  (.+)$') { throw 'Invalid checksum record' }
     $expected = $Matches[1]
@@ -42,4 +45,34 @@ if ((Get-FileHash -LiteralPath (Join-Path $work 'roundtrip.scratch')).Hash -ne
     throw 'Dynamic and static host snapshots differ'
 }
 Write-Output "standalone SDK verification passed; checksum, dynamic and static native checks complete"
+if ($IncludeCSharp) {
+    $managed = Join-Path $work 'managed'
+    $project = Join-Path $sdk 'examples/csharp/Scratchmark.Smoke.csproj'
+    $environment = @{
+        DOTNET_CLI_HOME = (Join-Path $work 'dotnet-home')
+        DOTNET_CLI_TELEMETRY_OPTOUT = '1'; DOTNET_SKIP_FIRST_TIME_EXPERIENCE = '1'
+        DOTNET_GENERATE_ASPNET_CERTIFICATE = 'false'; DOTNET_ADD_GLOBAL_TOOLS_TO_PATH = 'false'
+        DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE = 'true'
+    }
+    $previous = @{}
+    try {
+        foreach ($key in $environment.Keys) {
+            $previous[$key] = [Environment]::GetEnvironmentVariable($key, 'Process')
+            [Environment]::SetEnvironmentVariable($key, $environment[$key], 'Process')
+        }
+        & dotnet restore $project --configfile (Join-Path $sdk 'bindings/csharp/NuGet.Config') --packages (Join-Path $work 'packages')
+        if ($LASTEXITCODE -ne 0) { throw 'C# offline restore failed' }
+        & dotnet build $project --no-restore -c Release -o $managed | Tee-Object -FilePath (Join-Path $work 'managed-build.txt')
+        if ($LASTEXITCODE -ne 0) { throw 'C# host build failed' }
+        & dotnet (Join-Path $managed 'Scratchmark.Smoke.dll') (Join-Path $sdk 'bin/scratchmark.dll') (Join-Path $sdk 'spec/fixtures/simple-v1.hex') (Join-Path $managed 'roundtrip.scratch') | Tee-Object -FilePath (Join-Path $work 'managed-smoke.txt')
+        if ($LASTEXITCODE -ne 0) { throw 'C# smoke failed' }
+        if ((Get-FileHash -LiteralPath (Join-Path $work 'roundtrip.scratch')).Hash -ne
+            (Get-FileHash -LiteralPath (Join-Path $managed 'roundtrip.scratch')).Hash) {
+            throw 'Native and C# host snapshots differ'
+        }
+        Write-Output 'C# standalone verification passed; snapshot matches native host and shared fixture'
+    } finally {
+        foreach ($key in $previous.Keys) { [Environment]::SetEnvironmentVariable($key, $previous[$key], 'Process') }
+    }
+}
 Write-Output "verification dir: $work"
