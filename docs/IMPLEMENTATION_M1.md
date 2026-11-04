@@ -27,4 +27,4 @@
 
 不改 M0 ABI、核心行为或既有裁定，不新增第三方依赖，不安装大型工具链，不操作真实设备，不修改 PezMax-One，不上传产物，不推送。若发现必须改 ABI 或 Android 需安装组件，先记录具体缺口与可审查方案再请求决定。
 
-本机已发现 .NET SDK 9.0.316、GCC 16.1.0 与 JDK 17；当前仅安装 Rust Windows GNU target，常规路径未发现 Android SDK/NDK。此为环境核查，不构成 Android 适配验证。
+本机有 .NET SDK 9.0.316、GCC 16.1.0 与 JDK 17。初次工具链查找遗漏 D 盘；用户指出后已确认 `D:/Applications/AndroidSDK` 与 Studio 内置 Kotlin 2.3.10 可用，Gradle 已缓存。Android Rust target 未安装，NDK 尚未定位；具体证据与待授权组件方案见 [前置核查](ANDROID_PREREQUISITES.md)。此为环境核查，不构成 Android 适配验证。
