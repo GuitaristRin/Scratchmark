@@ -40,6 +40,7 @@ cp -- include/scratchmark.h "$sdk/include/"
 cp -- examples/c/smoke.c "$sdk/examples/"
 cp -- spec/M0.md "$sdk/spec/"
 cp -- spec/M2.md "$sdk/spec/"
+cp -- spec/M3.md "$sdk/spec/"
 
 head=$(git rev-parse HEAD)
 if [[ -n $(git status --porcelain --untracked-files=normal) ]]; then dirty=true; else dirty=false; fi
@@ -50,7 +51,7 @@ jq -n \
     --argjson sourceDirty "$dirty" \
     --arg compiler "$compiler_info" \
     --arg dependencies "Rust standard library and Linux system libraries" \
-    '{sdkVersion: $sdkVersion, abi: 1, features: 1, snapshotFormat: 1, target: $target,
+    '{sdkVersion: $sdkVersion, abi: 1, features: 3, snapshotFormat: 2, target: $target,
       sourceCommit: $sourceCommit, sourceDirty: $sourceDirty, compiler: $compiler,
       status: "experimental", dependencies: $dependencies}' > "$sdk/build-info.json"
 

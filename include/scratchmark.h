@@ -45,6 +45,8 @@ typedef struct SmBrushPoint {
     double x, y, width;
 } SmBrushPoint;
 #define SM_FEATURE_BRUSH_GEOMETRY UINT64_C(1)
+/* M3 页面标识与视口；映射、页面域与快照格式参 spec/M3.md。 */
+#define SM_FEATURE_PAGE_VIEWPORT UINT64_C(2)
 
 uint32_t SM_CALL sm_abi_version(void);
 uint64_t SM_CALL sm_features(void);
@@ -68,6 +70,32 @@ SmStatus SM_CALL sm_load(SmHandle handle, const uint8_t *data, uint32_t length);
 SmStatus SM_CALL sm_read_brush_points(SmHandle handle, uint64_t revision,
     uint32_t index, uint32_t start, const SmBrushOptions *options,
     SmBrushPoint *out_points, uint32_t capacity, uint32_t *out_written);
+
+/* M3 视口是宿主保留的显示配置，不入快照；旋转 / DPI 处理参 spec/M3.md。 */
+typedef struct SmViewport {
+    double scale, offset_x, offset_y;
+    uint32_t reserved;
+} SmViewport;
+typedef struct SmPoint {
+    double x, y;
+} SmPoint;
+typedef struct SmBounds {
+    double min_x, min_y, max_x, max_y;
+} SmBounds;
+/* 页面标识为宿主选择的稳定键，0 表示未设置。 */
+SmStatus SM_CALL sm_get_page_id(SmHandle handle, uint64_t *out_page_id);
+SmStatus SM_CALL sm_set_page_id(SmHandle handle, uint64_t page_id);
+/* 视口 <-> 页面纯函数：viewport = page * scale + offset；线宽按 scale 缩放。 */
+SmStatus SM_CALL sm_page_to_viewport(const SmViewport *viewport,
+    const SmPoint *in, SmPoint *out);
+SmStatus SM_CALL sm_viewport_to_page(const SmViewport *viewport,
+    const SmPoint *in, SmPoint *out);
+SmStatus SM_CALL sm_width_page_to_viewport(const SmViewport *viewport,
+    double width, double *out_width);
+SmStatus SM_CALL sm_width_viewport_to_page(const SmViewport *viewport,
+    double width, double *out_width);
+SmStatus SM_CALL sm_bounds_page_to_viewport(const SmViewport *viewport,
+    const SmBounds *in, SmBounds *out);
 
 #ifdef __cplusplus
 }

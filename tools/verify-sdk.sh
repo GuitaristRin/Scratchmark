@@ -66,7 +66,9 @@ echo "== exports =="
 # 与 examples/c/smoke.c 的 API_LIST 保持一致；新增导出时同步此清单。
 expected_exports=(sm_abi_version sm_features sm_create sm_destroy sm_begin sm_append
     sm_finish sm_cancel sm_undo sm_redo sm_get_state sm_get_stroke sm_read_points
-    sm_save sm_load sm_read_brush_points)
+    sm_save sm_load sm_read_brush_points
+    sm_get_page_id sm_set_page_id sm_page_to_viewport sm_viewport_to_page
+    sm_width_page_to_viewport sm_width_viewport_to_page sm_bounds_page_to_viewport)
 nm -D "$sdk/bin/libscratchmark.so" | tee "$work/exports.txt"
 for symbol in "${expected_exports[@]}"; do
     if ! grep -qE " T ${symbol}$" "$work/exports.txt"; then

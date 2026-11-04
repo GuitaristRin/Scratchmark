@@ -3,7 +3,8 @@ use crate::{
     create, guard, with_doc,
 };
 use scratchmark_core::{
-    BrushOptions, BrushPoint, Error, MAX_BATCH, MAX_POINTS, MAX_SNAPSHOT, Sample, State, StrokeInfo,
+    Bounds, BrushOptions, BrushPoint, Error, MAX_BATCH, MAX_POINTS, MAX_SNAPSHOT, Point, Sample,
+    State, StrokeInfo, Viewport,
 };
 
 /// # Safety
@@ -127,6 +128,8 @@ pub unsafe extern "C" fn sm_load(handle: u64, data: *const u8, length: u32) -> u
 mod brush_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod viewport_tests;
 
 /// # Safety
 /// 配置有效、对齐，输出区独占且互不重叠；约束参 spec/M2.md。
@@ -151,6 +154,125 @@ pub unsafe extern "C" fn sm_read_brush_points(
         })?;
         unsafe {
             out_written.write(n as u32);
+        }
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 输出指针必须满足 spec/M0.md 的可写、对齐与独占约束。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_get_page_id(handle: u64, out_page_id: *mut u64) -> u32 {
+    guard(|| {
+        required(out_page_id)?;
+        let page_id = with_doc(handle, |d| Ok(d.page_id()))?;
+        unsafe {
+            out_page_id.write(page_id);
+        }
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 句柄必须有效；页面标识语义参 spec/M3.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_set_page_id(handle: u64, page_id: u64) -> u32 {
+    guard(|| with_doc(handle, |d| d.set_page_id(page_id)))
+}
+
+/// # Safety
+/// 视口、输入与输出指针必须有效、对齐且互不重叠；约束参 spec/M3.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_page_to_viewport(
+    viewport: *const Viewport,
+    input: *const Point,
+    out_point: *mut Point,
+) -> u32 {
+    guard(|| {
+        required(viewport)?;
+        required(input)?;
+        required(out_point)?;
+        let point = unsafe { viewport.read() }.page_to_viewport(unsafe { input.read() })?;
+        unsafe {
+            out_point.write(point);
+        }
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 视口、输入与输出指针必须有效、对齐且互不重叠；约束参 spec/M3.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_viewport_to_page(
+    viewport: *const Viewport,
+    input: *const Point,
+    out_point: *mut Point,
+) -> u32 {
+    guard(|| {
+        required(viewport)?;
+        required(input)?;
+        required(out_point)?;
+        let point = unsafe { viewport.read() }.viewport_to_page(unsafe { input.read() })?;
+        unsafe {
+            out_point.write(point);
+        }
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 视口与输出指针必须有效、对齐且互不重叠；约束参 spec/M3.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_width_page_to_viewport(
+    viewport: *const Viewport,
+    width: f64,
+    out_width: *mut f64,
+) -> u32 {
+    guard(|| {
+        required(viewport)?;
+        required(out_width)?;
+        let width = unsafe { viewport.read() }.width_page_to_viewport(width)?;
+        unsafe {
+            out_width.write(width);
+        }
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 视口与输出指针必须有效、对齐且互不重叠；约束参 spec/M3.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_width_viewport_to_page(
+    viewport: *const Viewport,
+    width: f64,
+    out_width: *mut f64,
+) -> u32 {
+    guard(|| {
+        required(viewport)?;
+        required(out_width)?;
+        let width = unsafe { viewport.read() }.width_viewport_to_page(width)?;
+        unsafe {
+            out_width.write(width);
+        }
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 视口、输入与输出指针必须有效、对齐且互不重叠；约束参 spec/M3.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_bounds_page_to_viewport(
+    viewport: *const Viewport,
+    input: *const Bounds,
+    out_bounds: *mut Bounds,
+) -> u32 {
+    guard(|| {
+        required(viewport)?;
+        required(input)?;
+        required(out_bounds)?;
+        let bounds = unsafe { viewport.read() }.bounds_page_to_viewport(unsafe { input.read() })?;
+        unsafe {
+            out_bounds.write(bounds);
         }
         Ok(())
     })
