@@ -14,6 +14,9 @@ _Static_assert(sizeof(SmState) == 32, "SmState ABI");
 _Static_assert(sizeof(SmStrokeInfo) == 56, "SmStrokeInfo ABI");
 _Static_assert(sizeof(SmBrushOptions) == 24, "SmBrushOptions ABI");
 _Static_assert(sizeof(SmBrushPoint) == 24, "SmBrushPoint ABI");
+_Static_assert(sizeof(SmViewport) == 32, "SmViewport ABI");
+_Static_assert(sizeof(SmPoint) == 16, "SmPoint ABI");
+_Static_assert(sizeof(SmBounds) == 32, "SmBounds ABI");
 
 /* 两种链接路径共用行为断言，避免静态宿主只验证能链接。 */
 #define API_LIST(X) \
@@ -32,7 +35,14 @@ _Static_assert(sizeof(SmBrushPoint) == 24, "SmBrushPoint ABI");
     X(SmStatus, sm_read_points, (SmHandle, uint64_t, uint32_t, uint32_t, SmSample *, uint32_t, uint32_t *)) \
     X(SmStatus, sm_save, (SmHandle, uint8_t *, uint32_t, uint32_t *)) \
     X(SmStatus, sm_load, (SmHandle, const uint8_t *, uint32_t)) \
-    X(SmStatus, sm_read_brush_points, (SmHandle, uint64_t, uint32_t, uint32_t, const SmBrushOptions *, SmBrushPoint *, uint32_t, uint32_t *))
+    X(SmStatus, sm_read_brush_points, (SmHandle, uint64_t, uint32_t, uint32_t, const SmBrushOptions *, SmBrushPoint *, uint32_t, uint32_t *)) \
+    X(SmStatus, sm_get_page_id, (SmHandle, uint64_t *)) \
+    X(SmStatus, sm_set_page_id, (SmHandle, uint64_t)) \
+    X(SmStatus, sm_page_to_viewport, (const SmViewport *, const SmPoint *, SmPoint *)) \
+    X(SmStatus, sm_viewport_to_page, (const SmViewport *, const SmPoint *, SmPoint *)) \
+    X(SmStatus, sm_width_page_to_viewport, (const SmViewport *, double, double *)) \
+    X(SmStatus, sm_width_viewport_to_page, (const SmViewport *, double, double *)) \
+    X(SmStatus, sm_bounds_page_to_viewport, (const SmViewport *, const SmBounds *, SmBounds *))
 #define FIELD(ret, name, args) ret (SM_CALL *name) args;
 struct Api { API_LIST(FIELD) };
 #undef FIELD
@@ -112,6 +122,84 @@ static int brush_smoke(void) {
     REQUIRE(output[0].x == 8 && output[0].y == 4 && output[0].width == 10);
     STATUS(api.sm_cancel(handle), SM_OK);
     STATUS(api.sm_destroy(handle), SM_OK);
+    return 0;
+}
+
+static int viewport_smoke(void) {
+    REQUIRE((api.sm_features() & SM_FEATURE_PAGE_VIEWPORT) != 0);
+    SmViewport vp = {2.0, 10.0, 20.0, 0};
+    SmPoint page = {3.0, 4.0};
+    SmPoint out = {0, 0};
+    STATUS(api.sm_page_to_viewport(&vp, &page, &out), SM_OK);
+    REQUIRE(out.x == 16.0 && out.y == 28.0);
+    STATUS(api.sm_viewport_to_page(&vp, &out, &out), SM_OK);
+    REQUIRE(out.x == 3.0 && out.y == 4.0);
+    double width = 0;
+    STATUS(api.sm_width_page_to_viewport(&vp, 5.0, &width), SM_OK);
+    REQUIRE(width == 10.0);
+    STATUS(api.sm_width_viewport_to_page(&vp, 10.0, &width), SM_OK);
+    REQUIRE(width == 5.0);
+    SmBounds bounds = {-1.0, -2.0, 3.0, 4.0};
+    SmBounds out_bounds = {0, 0, 0, 0};
+    STATUS(api.sm_bounds_page_to_viewport(&vp, &bounds, &out_bounds), SM_OK);
+    REQUIRE(out_bounds.min_x == 8.0 && out_bounds.min_y == 16.0);
+    REQUIRE(out_bounds.max_x == 16.0 && out_bounds.max_y == 28.0);
+    /* 非法视口、越界页面域与溢出不写输出。 */
+    SmViewport invalid = vp;
+    invalid.scale = 0.0;
+    SmPoint sentinel = {99.0, 98.0};
+    SmPoint nan_point = {NAN, 0.0};
+    SmPoint far_page = {2e9, 0.0};
+    STATUS(api.sm_page_to_viewport(&invalid, &page, &sentinel), SM_INVALID_ARGUMENT);
+    invalid = vp;
+    invalid.reserved = 1;
+    STATUS(api.sm_viewport_to_page(&invalid, &page, &sentinel), SM_INVALID_ARGUMENT);
+    STATUS(api.sm_page_to_viewport(&vp, &nan_point, &sentinel), SM_INVALID_ARGUMENT);
+    STATUS(api.sm_page_to_viewport(&vp, &far_page, &sentinel), SM_INVALID_ARGUMENT);
+    REQUIRE(sentinel.x == 99.0 && sentinel.y == 98.0);
+    /* 页面标识：空闲设置、同值不递增、活动笔划拒绝。 */
+    SmHandle handle = 0;
+    STATUS(api.sm_create(&handle), SM_OK);
+    uint64_t page_id = 123;
+    STATUS(api.sm_get_page_id(handle, &page_id), SM_OK);
+    REQUIRE(page_id == 0);
+    SmState state;
+    STATUS(api.sm_begin(handle, 2.0, 0), SM_OK);
+    STATUS(api.sm_set_page_id(handle, 42), SM_INVALID_STATE);
+    STATUS(api.sm_cancel(handle), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    uint64_t before = state.revision;
+    STATUS(api.sm_set_page_id(handle, 42), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.revision == before + 1);
+    STATUS(api.sm_set_page_id(handle, 42), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.revision == before + 1);
+    /* 设置页面标识后快照为格式 2；跨页标识冲突拒绝；无标识引擎可整份恢复。 */
+    SmSample stroke[1] = {{1.0, 1.0, 0, 0.0f, 0}};
+    STATUS(api.sm_begin(handle, 2.0, 0), SM_OK);
+    STATUS(api.sm_append(handle, stroke, 1), SM_OK);
+    STATUS(api.sm_finish(handle), SM_OK);
+    uint32_t required = 0;
+    STATUS(api.sm_save(handle, NULL, 0, &required), SM_BUFFER_TOO_SMALL);
+    uint8_t *bytes = malloc(required);
+    REQUIRE(bytes != NULL);
+    STATUS(api.sm_save(handle, bytes, required, &required), SM_OK);
+    REQUIRE(memcmp(bytes, "SCRATCH2", 8) == 0);
+    SmHandle other = 0;
+    STATUS(api.sm_create(&other), SM_OK);
+    STATUS(api.sm_set_page_id(other, 43), SM_OK);
+    STATUS(api.sm_load(other, bytes, required), SM_INVALID_DATA);
+    SmHandle fresh = 0;
+    STATUS(api.sm_create(&fresh), SM_OK);
+    STATUS(api.sm_load(fresh, bytes, required), SM_OK);
+    page_id = 0;
+    STATUS(api.sm_get_page_id(fresh, &page_id), SM_OK);
+    REQUIRE(page_id == 42);
+    free(bytes);
+    STATUS(api.sm_destroy(handle), SM_OK);
+    STATUS(api.sm_destroy(other), SM_OK);
+    STATUS(api.sm_destroy(fresh), SM_OK);
     return 0;
 }
 
@@ -196,6 +284,7 @@ int main(int argc, char **argv) {
     STATUS(api.sm_destroy(second), SM_OK);
     STATUS(api.sm_destroy(second), SM_INVALID_HANDLE);
     if (brush_smoke()) { return 1; }
+    if (viewport_smoke()) { return 1; }
     printf("native smoke: %u checks passed\n", checks);
     return 0;
 }

@@ -29,12 +29,14 @@ try {
     Copy-Item -LiteralPath 'spec/M0.md' -Destination (Join-Path $sdk 'spec')
     Copy-Item -LiteralPath 'spec/M1-CSHARP.md' -Destination (Join-Path $sdk 'spec')
     Copy-Item -LiteralPath 'spec/M2.md' -Destination (Join-Path $sdk 'spec')
+    Copy-Item -LiteralPath 'spec/M3.md' -Destination (Join-Path $sdk 'spec')
     Copy-Item -LiteralPath 'spec/fixtures/simple-v1.hex' -Destination (Join-Path $sdk 'spec/fixtures')
+    Copy-Item -LiteralPath 'spec/fixtures/simple-v2-page42.hex' -Destination (Join-Path $sdk 'spec/fixtures')
     Copy-Item -LiteralPath 'bindings/csharp/NuGet.Config' -Destination (Join-Path $sdk 'bindings/csharp')
     foreach ($file in @('Scratchmark.csproj', 'Types.cs', 'Native.cs', 'Engine.cs')) {
         Copy-Item -LiteralPath (Join-Path 'bindings/csharp/Scratchmark' $file) -Destination (Join-Path $sdk 'bindings/csharp/Scratchmark')
     }
-    foreach ($file in @('Scratchmark.Smoke.csproj', 'Program.cs', 'NativeErrors.cs', 'Brush.cs')) {
+    foreach ($file in @('Scratchmark.Smoke.csproj', 'Program.cs', 'NativeErrors.cs', 'Brush.cs', 'PageViewport.cs')) {
         Copy-Item -LiteralPath (Join-Path 'examples/csharp' $file) -Destination (Join-Path $sdk 'examples/csharp')
     }
     Copy-Item -LiteralPath 'docs/SDK_README.md' -Destination (Join-Path $sdk 'README.md')
@@ -45,7 +47,7 @@ try {
     $dirty = @(& git status --porcelain --untracked-files=normal).Count -gt 0
     if ($LASTEXITCODE -ne 0) { throw 'git status failed' }
     [ordered]@{
-        sdkVersion = $version; abi = 1; features = 1; snapshotFormat = 1; target = $target
+        sdkVersion = $version; abi = 1; features = 3; snapshotFormat = 2; target = $target
         sourceCommit = $head; sourceDirty = $dirty; compiler = ($compilerInfo -join "`n")
         status = 'experimental'; dependencies = 'Rust standard library and Windows system libraries'
     } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $sdk 'build-info.json') -Encoding UTF8

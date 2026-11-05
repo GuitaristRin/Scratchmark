@@ -10,6 +10,7 @@ pub struct Document {
     pub(crate) redo: Vec<Stroke>,
     pub(crate) retained_points: usize,
     pub(crate) revision: u64,
+    pub(crate) page_id: u64,
 }
 
 impl Default for Document {
@@ -20,6 +21,7 @@ impl Default for Document {
             redo: Vec::new(),
             retained_points: 0,
             revision: 1,
+            page_id: 0,
         }
     }
 }
@@ -125,6 +127,21 @@ impl Document {
         }
     }
 
+    pub fn page_id(&self) -> u64 {
+        self.page_id
+    }
+
+    pub fn set_page_id(&mut self, id: u64) -> Result<()> {
+        self.ensure_idle()?;
+        if self.page_id == id {
+            return Ok(());
+        }
+        self.edit(|d| {
+            d.page_id = id;
+            Ok(())
+        })
+    }
+
     fn stroke(&self, revision: u64, index: u32) -> Result<(&Stroke, bool)> {
         if revision != self.revision {
             return Err(Error::StaleRevision);
@@ -202,10 +219,14 @@ impl Document {
 
     pub fn load(&mut self, bytes: &[u8]) -> Result<()> {
         self.ensure_idle()?;
-        let (strokes, retained_points) = crate::codec::decode(bytes)?;
+        let decoded = crate::codec::decode(bytes)?;
+        if self.page_id != 0 && decoded.page_id != 0 && self.page_id != decoded.page_id {
+            return Err(Error::InvalidData);
+        }
         self.edit(|d| {
-            d.strokes = strokes;
-            d.retained_points = retained_points;
+            d.strokes = decoded.strokes;
+            d.retained_points = decoded.total;
+            d.page_id = decoded.page_id;
             d.redo.clear();
             Ok(())
         })

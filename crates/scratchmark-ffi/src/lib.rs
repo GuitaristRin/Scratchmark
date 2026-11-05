@@ -76,7 +76,8 @@ pub extern "C" fn sm_abi_version() -> u32 {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn sm_features() -> u64 {
-    1
+    // bit 0：M2 派生笔刷；bit 1：M3 页面标识与视口变换。
+    0b11
 }
 
 #[unsafe(no_mangle)]

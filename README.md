@@ -2,14 +2,15 @@
 
 可嵌入的手写与页面批注模块。
 
-Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔迹与批注。当前 SDK 0.2.0 提供实验核心、C ABI 与 .NET 9 C# 适配；能力与验证边界见 [当前状态](docs/STATE_2026-11-04.md)。
+Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔迹与批注。当前 SDK 0.3.0 提供实验核心、C ABI 与 .NET 9 C# 适配；能力与验证边界见 [当前状态](docs/STATE_2026-11-04.md)。
 
 ## 当前范围
 
 - 批量样本输入、活动笔划、固定宽度折线与边界读取、提交 / 取消、整笔撤销重做。
-- 可编辑快照导出 / 导入；宿主执行实际文件读写与像素呈现。
-- 可配置在线平滑、逐点压力笔宽的派生读取，原始样本与格式 1 快照保持；显示配置由宿主保留。
-- Windows 原生动态 / 静态与 .NET 9 C# 实验适配；Linux 旧版动态路径已有证据，本轮扩展待复跑。设备前端与手感未验证。
+- 可编辑快照导出 / 导入（格式 2 携带页面标识）；宿主执行实际文件读写与像素呈现。
+- 可配置在线平滑、逐点压力笔宽的派生读取，原始样本保持；显示配置与视口由宿主保留。
+- 页面标识与页面坐标 ↔ 视口坐标的纯函数变换；缩放平移后笔迹与页面内容对应。
+- Windows 原生动态 / 静态与 .NET 9 C# 实验适配；Linux x86_64 GNU 动态 / 静态接入与 SDK 独立验收已复跑。设备前端与手感未验证。
 
 PezMax-One 的课本／试卷批注是明确的后续接入场景。二进制 SDK 接入不必依赖 Git submodule，源码依赖作为另一种可选方式；本阶段不修改 PezMax-One，也不建立 submodule。
 
@@ -21,7 +22,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 .\tools\build-sdk.ps1
 ```
 
-Windows SDK 内附 `verify-sdk.ps1`，可在仅有包内容与 GCC 的目录验证动态加载及静态链接，不要求检出引擎源码。Linux x86_64 GNU 已有独立动态宿主验收，使用 `tools/build-sdk.sh` 与 `tools/verify-sdk.sh`；Linux 静态接入和 Android 尚未验收。接口与快照均为实验版，不代表正式兼容承诺。
+Windows SDK 内附 `verify-sdk.ps1`，可在仅有包内容与 GCC 的目录验证动态加载及静态链接，不要求检出引擎源码。Linux x86_64 GNU 使用 `tools/build-sdk.sh` 与 `tools/verify-sdk.sh`，动态与静态接入、导出清单与快照一致性已在本机独立宿主验收；Android 尚未验收。接口与快照均为实验版，不代表正式兼容承诺。
 
 加上 `-IncludeCSharp` 可用已有 .NET 9 SDK 离线构建并运行 C# 宿主，验证共享夹具、编辑与恢复、布局、错误路径和释放时序；调用契约见 [C# 实验规格](spec/M1-CSHARP.md)。Android 的具体缺口见 [前置核查](docs/ANDROID_PREREQUISITES.md)。
 
@@ -41,6 +42,8 @@ Git 远端使用 SSH：`git@github.com:GuitaristRin/Scratchmark.git`。
 - [M1 宿主适配任务卡 - Canon](docs/IMPLEMENTATION_M1.md)
 - [M2 平滑与压力笔刷任务卡 - Canon](docs/IMPLEMENTATION_M2.md)
 - [M2 派生几何规格 - Canon](spec/M2.md)
+- [M3 页面标识与视口变换任务卡 - Canon](docs/IMPLEMENTATION_M3.md)
+- [M3 页面标识与视口规格 - Canon](spec/M3.md)
 - [M0 实验规格 - Canon](spec/M0.md)
 - [C 接口声明](include/scratchmark.h)
 - [SDK 使用说明](docs/SDK_README.md)
