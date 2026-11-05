@@ -75,13 +75,13 @@ impl Viewport {
     pub fn width_page_to_viewport(self, width: f64) -> Result<f64> {
         self.validate()?;
         positive(width)?;
-        finite(width * self.scale)
+        positive(width * self.scale)
     }
 
     pub fn width_viewport_to_page(self, width: f64) -> Result<f64> {
         self.validate()?;
         positive(width)?;
-        finite(width / self.scale)
+        positive(width / self.scale)
     }
 
     pub fn bounds_page_to_viewport(self, bounds: Bounds) -> Result<Bounds> {

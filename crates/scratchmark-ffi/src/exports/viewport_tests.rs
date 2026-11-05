@@ -3,6 +3,30 @@ use crate::{sm_begin, sm_cancel, sm_destroy, sm_features, sm_finish};
 use scratchmark_core::{Bounds, Point, Viewport};
 use std::ptr;
 
+#[test]
+fn width_underflow_keeps_ffi_output_unchanged() {
+    // 参 spec/M3.md §页面坐标与视口坐标：错误不得覆盖调用方输出。
+    let tiny = Viewport {
+        scale: f64::from_bits(1),
+        ..Viewport::default()
+    };
+    let large = Viewport {
+        scale: 2.0,
+        ..Viewport::default()
+    };
+    let mut output = 17.0;
+    assert_eq!(
+        unsafe { sm_width_page_to_viewport(&tiny, 0.5, &mut output) },
+        1
+    );
+    assert_eq!(output, 17.0);
+    assert_eq!(
+        unsafe { sm_width_viewport_to_page(&large, f64::from_bits(1), &mut output) },
+        1
+    );
+    assert_eq!(output, 17.0);
+}
+
 struct Handle(u64);
 impl Handle {
     fn new() -> Self {
