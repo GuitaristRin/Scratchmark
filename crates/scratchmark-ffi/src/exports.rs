@@ -3,8 +3,8 @@ use crate::{
     create, guard, with_doc,
 };
 use scratchmark_core::{
-    Bounds, BrushOptions, BrushPoint, Error, MAX_BATCH, MAX_POINTS, MAX_SNAPSHOT, Point, Sample,
-    State, StrokeInfo, Viewport,
+    Bounds, BrushOptions, BrushPoint, Error, MAX_BATCH, MAX_POINTS, MAX_SNAPSHOT, MAX_STROKES,
+    Point, Sample, State, StrokeInfo, Viewport,
 };
 
 /// # Safety
@@ -131,6 +131,8 @@ mod erase_path_tests;
 #[cfg(test)]
 mod hit_tests;
 #[cfg(test)]
+mod select_tests;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod viewport_tests;
@@ -208,6 +210,58 @@ pub unsafe extern "C" fn sm_erase_path(
         let points = unsafe { input(path, count, MAX_BATCH)? };
         with_doc(handle, |d| d.erase_path(revision, points, radius))
     })
+}
+
+/// # Safety
+/// 多边形与输出区必须满足 spec/M0.md 的指针、对齐与容量约束；语义参 spec/M6.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_lasso_hits(
+    handle: u64,
+    revision: u64,
+    path: *const Point,
+    count: u32,
+    out_indices: *mut u32,
+    capacity: u32,
+    out_written: *mut u32,
+) -> u32 {
+    guard(|| {
+        required(out_written)?;
+        let points = unsafe { input(path, count, MAX_BATCH)? };
+        let slots = unsafe { output(out_indices, capacity, MAX_POINTS)? };
+        let hits = with_doc(handle, |d| d.lasso_hits(revision, points))?;
+        unsafe {
+            out_written.write(hits.len() as u32);
+        }
+        if slots.len() < hits.len() {
+            return Err(Error::BufferTooSmall);
+        }
+        for (slot, index) in slots.iter_mut().zip(&hits) {
+            *slot = *index;
+        }
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 索引缓冲区必须覆盖 count 个有效索引，调用期间不得被其他线程修改；语义参 spec/M6.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_erase_indices(
+    handle: u64,
+    revision: u64,
+    indices: *const u32,
+    count: u32,
+) -> u32 {
+    guard(|| {
+        let list = unsafe { input(indices, count, MAX_STROKES)? };
+        with_doc(handle, |d| d.erase_indices(revision, list))
+    })
+}
+
+/// # Safety
+/// 句柄必须有效；语义参 spec/M6.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_clear(handle: u64, revision: u64) -> u32 {
+    guard(|| with_doc(handle, |d| d.clear(revision)))
 }
 
 /// # Safety

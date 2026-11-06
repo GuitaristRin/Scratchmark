@@ -50,6 +50,8 @@ typedef struct SmBrushPoint {
 #define SM_FEATURE_HIT_ERASE UINT64_C(4)
 /* M5 局部擦除；路径、半径与切分语义参 spec/M5.md。 */
 #define SM_FEATURE_PARTIAL_ERASE UINT64_C(8)
+/* M6 套索命中与批量删除；多边形判定与索引规则参 spec/M6.md。 */
+#define SM_FEATURE_SELECTION UINT64_C(16)
 
 uint32_t SM_CALL sm_abi_version(void);
 uint64_t SM_CALL sm_features(void);
@@ -95,6 +97,13 @@ SmStatus SM_CALL sm_erase_stroke(SmHandle handle, uint64_t revision,
     uint32_t index);
 SmStatus SM_CALL sm_erase_path(SmHandle handle, uint64_t revision,
     const SmPoint *path, uint32_t count, double radius);
+/* 套索命中是只读查询；引擎不保存选区，高亮与选中态由宿主保留。 */
+SmStatus SM_CALL sm_lasso_hits(SmHandle handle, uint64_t revision,
+    const SmPoint *path, uint32_t count,
+    uint32_t *out_indices, uint32_t capacity, uint32_t *out_written);
+SmStatus SM_CALL sm_erase_indices(SmHandle handle, uint64_t revision,
+    const uint32_t *indices, uint32_t count);
+SmStatus SM_CALL sm_clear(SmHandle handle, uint64_t revision);
 /* 视口 <-> 页面纯函数：viewport = page * scale + offset；线宽按 scale 缩放。 */
 SmStatus SM_CALL sm_page_to_viewport(const SmViewport *viewport,
     const SmPoint *in, SmPoint *out);
