@@ -33,11 +33,14 @@ impl Document {
         }
 
         let path_bounds = path_bounds(path);
+        // 逐段的包围盒只算一次，供每个笔划段快速排除远处的擦除段；
+        // 没有它，长路径 × 多点笔划是 O(点数 × 路径点数) 的纯平方开销。
+        let segments = erase_segments(path);
         let radius_sq = radius * radius;
         let mut plans: Vec<Option<Vec<Stroke>>> = Vec::with_capacity(self.strokes.len());
         let mut affected = false;
         for stroke in &self.strokes {
-            let plan = cut_stroke(stroke, path, path_bounds, radius, radius_sq)?;
+            let plan = cut_stroke(stroke, &segments, path_bounds, radius, radius_sq)?;
             affected |= plan.is_some();
             plans.push(plan);
         }
@@ -106,10 +109,39 @@ fn path_bounds(path: &[Point]) -> [f64; 4] {
     bounds
 }
 
+/// 擦除路径的一段及其包围盒；单点路径退化为一个零长度段（用作点擦除）。
+struct EraseSegment {
+    a: Point,
+    b: Point,
+    bounds: [f64; 4],
+}
+
+fn erase_segments(path: &[Point]) -> Vec<EraseSegment> {
+    let mut segments: Vec<EraseSegment> = Vec::with_capacity(path.len().max(1));
+    if path.len() == 1 {
+        let a = path[0];
+        segments.push(EraseSegment {
+            a,
+            b: a,
+            bounds: [a.x, a.y, a.x, a.y],
+        });
+        return segments;
+    }
+    for pair in path.windows(2) {
+        let (a, b) = (pair[0], pair[1]);
+        segments.push(EraseSegment {
+            a,
+            b,
+            bounds: [a.x.min(b.x), a.y.min(b.y), a.x.max(b.x), a.y.max(b.y)],
+        });
+    }
+    segments
+}
+
 /// 返回 `None` 表示完全不受影响；`Some(vec![])` 表示整笔被擦掉。
 fn cut_stroke(
     stroke: &Stroke,
-    path: &[Point],
+    path: &[EraseSegment],
     path_bounds: [f64; 4],
     radius: f64,
     radius_sq: f64,
@@ -143,7 +175,7 @@ fn cut_stroke(
             covered.push(Vec::new());
             continue;
         }
-        let intervals = segment_covers(a, b, path, radius_sq);
+        let intervals = segment_covers(a, b, path, radius, segment);
         any_cover |= !intervals.is_empty();
         covered.push(intervals);
     }
@@ -248,15 +280,10 @@ fn lerp_sample(a: &Sample, b: &Sample, t: f64) -> Sample {
     }
 }
 
-fn distance_to_path_sq(x: f64, y: f64, path: &[Point]) -> f64 {
+fn distance_to_path_sq(x: f64, y: f64, path: &[EraseSegment]) -> f64 {
     let mut best = f64::INFINITY;
-    for pair in path.windows(2) {
-        best = best.min(point_segment_distance_sq(x, y, pair[0], pair[1]));
-    }
-    if path.len() == 1 {
-        let dx = x - path[0].x;
-        let dy = y - path[0].y;
-        best = dx * dx + dy * dy;
+    for segment in path {
+        best = best.min(point_segment_distance_sq(x, y, segment.a, segment.b));
     }
     best
 }
@@ -276,17 +303,22 @@ fn point_segment_distance_sq(x: f64, y: f64, e0: Point, e1: Point) -> f64 {
 }
 
 /// 单个笔划段上的覆盖区间集合（合并、裁剪、去掉零长度）。
-fn segment_covers(a: &Sample, b: &Sample, path: &[Point], radius_sq: f64) -> Vec<(f64, f64)> {
+fn segment_covers(
+    a: &Sample,
+    b: &Sample,
+    path: &[EraseSegment],
+    radius: f64,
+    segment: [f64; 4],
+) -> Vec<(f64, f64)> {
     let mut intervals: Vec<(f64, f64)> = Vec::new();
-    if path.len() == 1 {
-        if let Some(interval) = segment_cover(a, b, path[0], path[0], radius_sq) {
-            intervals.push(interval);
+    for erase in path {
+        // 逐段包围盒排除：斜向路径上大多数擦除段离本段很远，先跳过再解方程。
+        // 距离 ≤ 半径意味着交点同时落在两个（其中一个已扩张半径的）包围盒内。
+        if disjoint(segment, erase.bounds, radius) {
+            continue;
         }
-    } else {
-        for pair in path.windows(2) {
-            if let Some(interval) = segment_cover(a, b, pair[0], pair[1], radius_sq) {
-                intervals.push(interval);
-            }
+        if let Some(interval) = segment_cover(a, b, erase.a, erase.b, radius * radius) {
+            intervals.push(interval);
         }
     }
     merge(intervals)
