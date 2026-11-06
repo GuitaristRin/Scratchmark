@@ -127,6 +127,8 @@ pub unsafe extern "C" fn sm_load(handle: u64, data: *const u8, length: u32) -> u
 #[cfg(test)]
 mod brush_tests;
 #[cfg(test)]
+mod erase_path_tests;
+#[cfg(test)]
 mod hit_tests;
 #[cfg(test)]
 mod tests;
@@ -190,6 +192,22 @@ pub unsafe extern "C" fn sm_hit_test(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sm_erase_stroke(handle: u64, revision: u64, index: u32) -> u32 {
     guard(|| with_doc(handle, |d| d.erase_stroke(revision, index)))
+}
+
+/// # Safety
+/// 擦除路径缓冲区必须覆盖 count 个点，调用期间不得被其他线程修改；语义参 spec/M5.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_erase_path(
+    handle: u64,
+    revision: u64,
+    path: *const Point,
+    count: u32,
+    radius: f64,
+) -> u32 {
+    guard(|| {
+        let points = unsafe { input(path, count, MAX_BATCH)? };
+        with_doc(handle, |d| d.erase_path(revision, points, radius))
+    })
 }
 
 /// # Safety

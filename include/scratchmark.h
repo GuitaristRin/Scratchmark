@@ -48,6 +48,8 @@ typedef struct SmBrushPoint {
 /* M3 页面标识与视口；映射、页面域与快照格式参 spec/M3.md。 */
 #define SM_FEATURE_PAGE_VIEWPORT UINT64_C(2)
 #define SM_FEATURE_HIT_ERASE UINT64_C(4)
+/* M5 局部擦除；路径、半径与切分语义参 spec/M5.md。 */
+#define SM_FEATURE_PARTIAL_ERASE UINT64_C(8)
 
 uint32_t SM_CALL sm_abi_version(void);
 uint64_t SM_CALL sm_features(void);
@@ -91,6 +93,8 @@ SmStatus SM_CALL sm_hit_test(SmHandle handle, uint64_t revision,
     uint32_t *out_index, uint32_t *out_found);
 SmStatus SM_CALL sm_erase_stroke(SmHandle handle, uint64_t revision,
     uint32_t index);
+SmStatus SM_CALL sm_erase_path(SmHandle handle, uint64_t revision,
+    const SmPoint *path, uint32_t count, double radius);
 /* 视口 <-> 页面纯函数：viewport = page * scale + offset；线宽按 scale 缩放。 */
 SmStatus SM_CALL sm_page_to_viewport(const SmViewport *viewport,
     const SmPoint *in, SmPoint *out);
