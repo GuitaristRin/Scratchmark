@@ -20,7 +20,7 @@ foreach ($line in Get-Content -LiteralPath (Join-Path $sdk 'SHA256SUMS')) {
 $work = Join-Path $sdk ('verification-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
 New-Item -ItemType Directory -Path $work | Out-Null
 $exe = Join-Path $work 'smoke.exe'
-& $CCompiler -std=c11 -Wall -Wextra -Werror '-I' (Join-Path $sdk 'include') (Join-Path $sdk 'examples/smoke.c') '-o' $exe
+& $CCompiler -std=c11 -Wall -Wextra -Werror '-I' (Join-Path $sdk 'include') (Join-Path $sdk 'examples/smoke.c') '-o' $exe 2>&1
 if ($LASTEXITCODE -ne 0) { throw 'C host build failed' }
 & $exe (Join-Path $sdk 'bin/scratchmark.dll') (Join-Path $work 'roundtrip.scratch')
 if ($LASTEXITCODE -ne 0) { throw 'SDK smoke failed' }
@@ -28,7 +28,8 @@ $staticWork = Join-Path $work 'static'
 New-Item -ItemType Directory -Path $staticWork | Out-Null
 $staticExe = Join-Path $staticWork 'smoke-static.exe'
 # Rust GNU staticlib 仍需系统库；顺序来自 cargo rustc -- --print native-static-libs。
-& $CCompiler -std=c11 -Wall -Wextra -Werror '-DSM_STATIC' '-I' (Join-Path $sdk 'include') (Join-Path $sdk 'examples/smoke.c') (Join-Path $sdk 'lib/libscratchmark.a') '-lkernel32' '-lntdll' '-luserenv' '-lws2_32' '-ldbghelp' '-o' $staticExe
+$staticCompile = & $CCompiler -std=c11 -Wall -Wextra -Werror '-DSM_STATIC' '-I' (Join-Path $sdk 'include') (Join-Path $sdk 'examples/smoke.c') (Join-Path $sdk 'lib/libscratchmark.a') '-lkernel32' '-lntdll' '-luserenv' '-lws2_32' '-ldbghelp' '-o' $staticExe 2>&1
+$staticCompile | Write-Output
 if ($LASTEXITCODE -ne 0) { throw 'Static C host build failed' }
 $objdump = & $CCompiler -print-prog-name=objdump
 if ($LASTEXITCODE -ne 0) { throw 'objdump discovery failed' }

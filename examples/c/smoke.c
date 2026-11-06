@@ -38,6 +38,8 @@ _Static_assert(sizeof(SmBounds) == 32, "SmBounds ABI");
     X(SmStatus, sm_read_brush_points, (SmHandle, uint64_t, uint32_t, uint32_t, const SmBrushOptions *, SmBrushPoint *, uint32_t, uint32_t *)) \
     X(SmStatus, sm_get_page_id, (SmHandle, uint64_t *)) \
     X(SmStatus, sm_set_page_id, (SmHandle, uint64_t)) \
+    X(SmStatus, sm_hit_test, (SmHandle, uint64_t, double, double, double, uint32_t *, uint32_t *)) \
+    X(SmStatus, sm_erase_stroke, (SmHandle, uint64_t, uint32_t)) \
     X(SmStatus, sm_page_to_viewport, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_viewport_to_page, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_width_page_to_viewport, (const SmViewport *, double, double *)) \
@@ -203,6 +205,64 @@ static int viewport_smoke(void) {
     return 0;
 }
 
+static int hit_erase_smoke(void) {
+    REQUIRE((api.sm_features() & SM_FEATURE_HIT_ERASE) != 0);
+    SmHandle handle = 0;
+    STATUS(api.sm_create(&handle), SM_OK);
+    SmSample stroke[2] = {{0.0, 0.0, 0, 0.0f, 0}, {10.0, 0.0, 1, 0.0f, 0}};
+    STATUS(api.sm_begin(handle, 2.0, 0), SM_OK);
+    STATUS(api.sm_append(handle, stroke, 2), SM_OK);
+    STATUS(api.sm_finish(handle), SM_OK);
+    SmSample second[2] = {{100.0, 0.0, 0, 0.0f, 0}, {110.0, 0.0, 1, 0.0f, 0}};
+    STATUS(api.sm_begin(handle, 2.0, 0), SM_OK);
+    STATUS(api.sm_append(handle, second, 2), SM_OK);
+    STATUS(api.sm_finish(handle), SM_OK);
+    SmState state;
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    uint32_t index = 99, found = 99;
+    STATUS(api.sm_hit_test(handle, state.revision, 5.0, 0.0, 0.0, &index, &found), SM_OK);
+    REQUIRE(index == 0 && found == 1);
+    index = 99; found = 99;
+    STATUS(api.sm_hit_test(handle, state.revision, 1000.0, 0.0, 0.0, &index, &found), SM_OK);
+    REQUIRE(index == 0 && found == 0);
+    index = 99; found = 99;
+    STATUS(api.sm_hit_test(handle, state.revision - 1, 5.0, 0.0, 0.0, &index, &found), SM_STALE_REVISION);
+    REQUIRE(index == 99 && found == 99);
+    STATUS(api.sm_hit_test(handle, state.revision, 5.0, 0.0, -1.0, &index, &found), SM_INVALID_ARGUMENT);
+    REQUIRE(index == 99 && found == 99);
+    STATUS(api.sm_hit_test(handle, state.revision, 5.0, 0.0, 0.0, NULL, &found), SM_INVALID_ARGUMENT);
+    REQUIRE(found == 99);
+    STATUS(api.sm_erase_stroke(handle, state.revision - 1, 0), SM_STALE_REVISION);
+    STATUS(api.sm_erase_stroke(handle, state.revision, 2), SM_INVALID_ARGUMENT);
+    STATUS(api.sm_begin(handle, 2.0, 0), SM_OK);
+    SmSample active = {0.0, 10.0, 0, 0.0f, 0};
+    STATUS(api.sm_append(handle, &active, 1), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    STATUS(api.sm_erase_stroke(handle, state.revision, 0), SM_INVALID_STATE);
+    index = 99; found = 99;
+    STATUS(api.sm_hit_test(handle, state.revision, 0.0, 10.0, 0.0, &index, &found), SM_OK);
+    REQUIRE(found == 0);
+    STATUS(api.sm_cancel(handle), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    STATUS(api.sm_erase_stroke(handle, state.revision, 0), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.stroke_count == 1);
+    STATUS(api.sm_hit_test(handle, state.revision, 5.0, 0.0, 0.0, &index, &found), SM_OK);
+    REQUIRE(found == 0);
+    STATUS(api.sm_undo(handle), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.stroke_count == 2);
+    STATUS(api.sm_hit_test(handle, state.revision, 5.0, 0.0, 0.0, &index, &found), SM_OK);
+    REQUIRE(index == 0 && found == 1);
+    STATUS(api.sm_redo(handle), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.stroke_count == 1);
+    STATUS(api.sm_hit_test(handle, state.revision, 5.0, 0.0, 0.0, &index, &found), SM_OK);
+    REQUIRE(found == 0);
+    STATUS(api.sm_destroy(handle), SM_OK);
+    return 0;
+}
+
 int main(int argc, char **argv) {
 #ifdef SM_STATIC
     if (argc != 2) { fprintf(stderr, "usage: smoke SNAPSHOT_PATH\n"); return 2; }
@@ -285,6 +345,7 @@ int main(int argc, char **argv) {
     STATUS(api.sm_destroy(second), SM_INVALID_HANDLE);
     if (brush_smoke()) { return 1; }
     if (viewport_smoke()) { return 1; }
+    if (hit_erase_smoke()) { return 1; }
     printf("native smoke: %u checks passed\n", checks);
     return 0;
 }

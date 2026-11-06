@@ -1,6 +1,6 @@
 # Scratchmark M0 开发 SDK
 
-这是无 UI 的实验性原生引擎，SDK 0.3.0 / ABI 1，快照格式 1 与 2（页面标识），能力位 bit 0 支持平滑 / 压力派生读取，bit 1 支持页面标识与视口变换。不提供稳定发布兼容承诺；原始行为参 `spec/M0.md`，派生笔刷参 `spec/M2.md`，页面标识与视口参 `spec/M3.md`。
+这是无 UI 的实验性原生引擎，SDK 0.4.0 / ABI 1，快照格式 1 与 2（页面标识），能力位 bit 0 支持平滑 / 压力派生读取，bit 1 支持页面标识与视口变换，bit 2 支持命中测试与整笔擦除。不提供稳定发布兼容承诺；原始行为参 `spec/M0.md`，派生笔刷参 `spec/M2.md`，页面标识与视口参 `spec/M3.md`，命中与擦除参 `spec/M4.md`。
 
 ## 包内容
 
@@ -42,11 +42,13 @@ Linux x86_64 GNU 使用 `tools/build-sdk.sh` 与 `tools/verify-sdk.sh`，包内�
 
 ## 当前能力与限制
 
-支持固定宽度原始折线、活动笔迹、边界、整笔历史、可编辑快照、页面标识，可配置因果平滑与压力笔宽的派生读取，以及页面坐标 ↔ 视口坐标的纯函数变换。原始样本不改动；没有窗口或绘图后端，视口由宿主保存。预测、擦除、套索、命中、多页管理和设备防误触未实现。
+支持固定宽度原始折线、活动笔迹、边界、整笔历史、可编辑快照、页面标识，可配置因果平滑与压力笔宽的派生读取，页面坐标 ↔ 视口坐标的纯函数变换，以及原始中心线命中与整笔擦除。原始样本不改动；没有窗口或绘图后端，视口由宿主保存。预测、局部擦除、套索、多页管理和设备防误触未实现。
 
 设置了页面标识的文档 `sm_save` 写格式 2（魔数 `SCRATCH2` + u64 页面标识），未设置仍写格式 1；`sm_load` 两者都接受，双方非零且不同的页面标识拒绝载入。`sm_page_to_viewport` 等变换是纯函数，`SmViewport` 与显示配置一样由宿主保存，不入快照、不影响 revision。
 
 `sm_read_brush_points` / C# `ReadBrushPoints` 接受 Alpha、MinWidthRatio 与压力开关，输出中心线及逐点完整笔宽。无压力样本仍为固定线宽；Alpha=1 关闭平滑。配置须显式有效，快照不存读取配置，宿主需一并保留它们才能重现相同外观。当前平滑会有采样相关滞后，不自动贴回笔尾；本轮未验收实机手感。
+
+`sm_hit_test` / C# `HitTest` 只在已提交笔划中按原始中心线查找，多命中取最上层，容差为页面单位；活动笔划不参与。`sm_erase_stroke` / C# `EraseStroke` 只在空闲时按索引删除整笔，revision 不匹配返回 `STALE_REVISION`，撤销恢复原 z 序。局部擦除、套索和选择尚未实现。
 
 Windows 包验证 Windows x64 GNU 原生 C 动态调用与静态链接，以及 .NET 9 C# 调用。C# 用法为 `using var engine = new Scratchmark.Engine(absoluteDllPath)`；每个文档协调调用与 Dispose，错误状态由 `ScratchmarkException.Status` 保留。`STALE_REVISION` 由调用方重新获取状态；文件事务仍由宿主负责。
 
