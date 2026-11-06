@@ -2,6 +2,7 @@
 mod brush;
 mod codec;
 mod document;
+mod hit;
 mod viewport;
 
 pub use brush::{BrushOptions, BrushPoint};
@@ -54,7 +55,7 @@ impl Sample {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[repr(C)]
 pub struct State {
     pub revision: u64,

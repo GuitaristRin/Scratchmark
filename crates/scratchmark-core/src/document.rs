@@ -4,11 +4,46 @@ use crate::{
 };
 
 #[derive(Debug)]
+pub(crate) enum Edit {
+    Add(Option<Stroke>),
+    Erase {
+        index: usize,
+        stroke: Option<Stroke>,
+    },
+}
+
+impl Edit {
+    fn owns_stroke(&self) -> bool {
+        matches!(
+            self,
+            Edit::Add(Some(_))
+                | Edit::Erase {
+                    stroke: Some(_),
+                    ..
+                }
+        )
+    }
+
+    fn owned_points(&self) -> usize {
+        match self {
+            Edit::Add(Some(stroke))
+            | Edit::Erase {
+                stroke: Some(stroke),
+                ..
+            } => stroke.points.len(),
+            _ => 0,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Document {
     pub(crate) strokes: Vec<Stroke>,
     pub(crate) active: Option<Stroke>,
-    pub(crate) redo: Vec<Stroke>,
+    pub(crate) undo: Vec<Edit>,
+    pub(crate) redo: Vec<Edit>,
     pub(crate) retained_points: usize,
+    pub(crate) retained_strokes: usize,
     pub(crate) revision: u64,
     pub(crate) page_id: u64,
 }
@@ -18,8 +53,10 @@ impl Default for Document {
         Self {
             strokes: Vec::new(),
             active: None,
+            undo: Vec::new(),
             redo: Vec::new(),
             retained_points: 0,
+            retained_strokes: 0,
             revision: 1,
             page_id: 0,
         }
@@ -34,13 +71,22 @@ impl Document {
         Ok(())
     }
 
+    fn discard_redo(&mut self) {
+        for edit in self.redo.drain(..) {
+            if edit.owns_stroke() {
+                self.retained_points -= edit.owned_points();
+                self.retained_strokes -= 1;
+            }
+        }
+    }
+
     pub fn state(&self) -> State {
         State {
             revision: self.revision,
             stroke_count: self.strokes.len() as u32,
             active_points: self.active.as_ref().map_or(0, |s| s.points.len() as u32),
             has_active: u32::from(self.active.is_some()),
-            can_undo: u32::from(self.active.is_none() && !self.strokes.is_empty()),
+            can_undo: u32::from(self.active.is_none() && !self.undo.is_empty()),
             can_redo: u32::from(self.active.is_none() && !self.redo.is_empty()),
             reserved: 0,
         }
@@ -49,10 +95,11 @@ impl Document {
     pub fn begin(&mut self, width: f64, color: u32) -> Result<()> {
         self.edit(|d| {
             d.ensure_idle()?;
-            if d.strokes.len() + d.redo.len() >= MAX_STROKES {
+            if d.retained_strokes >= MAX_STROKES {
                 return Err(Error::LimitExceeded);
             }
             d.active = Some(Stroke::new(width, color)?);
+            d.retained_strokes += 1;
             Ok(())
         })
     }
@@ -88,9 +135,9 @@ impl Document {
                 return Err(Error::InvalidState);
             }
             let stroke = d.active.take().ok_or(Error::InvalidState)?;
-            d.retained_points -= d.redo.iter().map(|s| s.points.len()).sum::<usize>();
-            d.redo.clear();
+            d.discard_redo();
             d.strokes.push(stroke);
+            d.undo.push(Edit::Add(None));
             Ok(())
         })
     }
@@ -99,6 +146,7 @@ impl Document {
         self.edit(|d| {
             let stroke = d.active.take().ok_or(Error::InvalidState)?;
             d.retained_points -= stroke.points.len();
+            d.retained_strokes -= 1;
             Ok(())
         })
     }
@@ -106,7 +154,25 @@ impl Document {
     pub fn undo(&mut self) -> Result<()> {
         self.edit(|d| {
             d.ensure_idle()?;
-            d.redo.push(d.strokes.pop().ok_or(Error::InvalidState)?);
+            let edit = d.undo.pop().ok_or(Error::InvalidState)?;
+            match edit {
+                Edit::Add(stroke) => {
+                    debug_assert!(stroke.is_none());
+                    let stroke = d.strokes.pop().ok_or(Error::Internal)?;
+                    d.redo.push(Edit::Add(Some(stroke)));
+                }
+                Edit::Erase { index, stroke } => {
+                    let stroke = stroke.ok_or(Error::Internal)?;
+                    if index > d.strokes.len() {
+                        return Err(Error::Internal);
+                    }
+                    d.strokes.insert(index, stroke);
+                    d.redo.push(Edit::Erase {
+                        index,
+                        stroke: None,
+                    });
+                }
+            }
             Ok(())
         })
     }
@@ -114,7 +180,44 @@ impl Document {
     pub fn redo(&mut self) -> Result<()> {
         self.edit(|d| {
             d.ensure_idle()?;
-            d.strokes.push(d.redo.pop().ok_or(Error::InvalidState)?);
+            let edit = d.redo.pop().ok_or(Error::InvalidState)?;
+            match edit {
+                Edit::Add(stroke) => {
+                    let stroke = stroke.ok_or(Error::Internal)?;
+                    d.strokes.push(stroke);
+                    d.undo.push(Edit::Add(None));
+                }
+                Edit::Erase { index, stroke } => {
+                    debug_assert!(stroke.is_none());
+                    if index >= d.strokes.len() {
+                        return Err(Error::Internal);
+                    }
+                    let stroke = d.strokes.remove(index);
+                    d.undo.push(Edit::Erase {
+                        index,
+                        stroke: Some(stroke),
+                    });
+                }
+            }
+            Ok(())
+        })
+    }
+
+    pub fn erase_stroke(&mut self, revision: u64, index: u32) -> Result<()> {
+        self.ensure_idle()?;
+        if revision != self.revision {
+            return Err(Error::StaleRevision);
+        }
+        if index as usize >= self.strokes.len() {
+            return Err(Error::InvalidArgument);
+        }
+        self.edit(|d| {
+            let stroke = d.strokes.remove(index as usize);
+            d.discard_redo();
+            d.undo.push(Edit::Erase {
+                index: index as usize,
+                stroke: Some(stroke),
+            });
             Ok(())
         })
     }
@@ -226,7 +329,10 @@ impl Document {
         self.edit(|d| {
             d.strokes = decoded.strokes;
             d.retained_points = decoded.total;
+            d.retained_strokes = d.strokes.len();
             d.page_id = decoded.page_id;
+            d.undo.clear();
+            d.undo.extend((0..d.strokes.len()).map(|_| Edit::Add(None)));
             d.redo.clear();
             Ok(())
         })
