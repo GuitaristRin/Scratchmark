@@ -107,3 +107,23 @@ public struct Bounds
 {
     public double MinX, MinY, MaxX, MaxY;
 }
+
+/* M7 仿射变换：页面坐标到页面坐标；原点、轴线与手柄由宿主决定。 */
+[StructLayout(LayoutKind.Sequential)]
+public struct Transform
+{
+    public double M00, M01, M10, M11, Dx, Dy;
+
+    public static Transform Identity => new() { M00 = 1.0, M11 = 1.0 };
+
+    public static Transform Translate(double dx, double dy) => new() { M00 = 1.0, M11 = 1.0, Dx = dx, Dy = dy };
+
+    public static Transform Scale(double sx, double sy) => new() { M00 = sx, M11 = sy };
+
+    public static Transform Rotate(double radians)
+    {
+        double cos = Math.Cos(radians);
+        double sin = Math.Sin(radians);
+        return new Transform { M00 = cos, M01 = -sin, M10 = sin, M11 = cos };
+    }
+}

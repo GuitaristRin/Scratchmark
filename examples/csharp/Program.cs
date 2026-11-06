@@ -48,6 +48,7 @@ internal static unsafe partial class Program
         HitErase(args[0]);
         LocalErase(args[0]);
         Selection(args[0]);
+        TransformSelection(args[0]);
         Console.WriteLine($"C# smoke: {checks} checks passed");
         return 0;
     }

@@ -129,6 +129,42 @@ public sealed unsafe class Engine : IDisposable
         lock (gate) Check(Native.Clear(Handle, revision));
     }
 
+    /// <summary>原位变换选区：索引与 z 序不变，线宽按 √|det| 缩放。</summary>
+    public void TransformStrokes(ulong revision, ReadOnlySpan<uint> indices, Transform transform)
+    {
+        lock (gate)
+        fixed (uint* list = indices)
+            Check(Native.TransformStrokes(Handle, revision, list, (uint)indices.Length, transform));
+    }
+
+    /// <summary>复制选区为格式 1 快照字节，可直接当剪贴板内容。</summary>
+    public byte[] CopyStrokes(ulong revision, ReadOnlySpan<uint> indices)
+    {
+        lock (gate)
+        fixed (uint* list = indices)
+        {
+            uint count = (uint)indices.Length;
+            Status probe = Native.CopyStrokes(Handle, revision, list, count, null, 0, out uint required);
+            if (probe != Status.Ok && probe != Status.BufferTooSmall) Check(probe);
+            byte[] buffer = new byte[required];
+            fixed (byte* data = buffer)
+                Check(Native.CopyStrokes(Handle, revision, list, count, data, required, out _));
+            return buffer;
+        }
+    }
+
+    /// <summary>粘贴格式 1 快照字节；`null` 表示恒等变换。</summary>
+    public void Paste(ulong revision, ReadOnlySpan<byte> data, Transform? transform = null)
+    {
+        lock (gate)
+        fixed (byte* bytes = data)
+        {
+            uint length = (uint)data.Length;
+            if (transform is { } value) Check(Native.Paste(Handle, revision, bytes, length, value));
+            else Check(Native.PasteIdentity(Handle, revision, bytes, length, IntPtr.Zero));
+        }
+    }
+
     public byte[] Save()
     {
         lock (gate)

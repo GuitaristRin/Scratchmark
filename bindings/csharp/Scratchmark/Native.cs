@@ -35,8 +35,8 @@ internal static unsafe class Native
             }
             // 库保持到进程结束，避免 finalizer 或在途调用访问已卸载代码。
             if (AbiVersion() != 1) throw new NotSupportedException("Expected Scratchmark ABI 1.");
-            if (!NativeLibrary.TryGetExport(library, "sm_features", out _) || (Features() & 31) != 31)
-                throw new NotSupportedException("SDK does not support M2 brush, M3 page/viewport, M4 hit/erase, M5 partial erase or M6 selection.");
+            if (!NativeLibrary.TryGetExport(library, "sm_features", out _) || (Features() & 63) != 63)
+                throw new NotSupportedException("SDK does not support M2 brush, M3 page/viewport, M4 hit/erase, M5 partial erase, M6 selection or M7 transform.");
         }
     }
 
@@ -92,6 +92,15 @@ internal static unsafe class Native
     internal static extern Status EraseIndices(ulong handle, ulong revision, uint* indices, uint count);
     [DllImport(Library, EntryPoint = "sm_clear", CallingConvention = CallingConvention.Cdecl)]
     internal static extern Status Clear(ulong handle, ulong revision);
+    [DllImport(Library, EntryPoint = "sm_transform_strokes", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status TransformStrokes(ulong handle, ulong revision, uint* indices, uint count, in Transform transform);
+    [DllImport(Library, EntryPoint = "sm_copy_strokes", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status CopyStrokes(ulong handle, ulong revision, uint* indices, uint count,
+        byte* data, uint capacity, out uint required);
+    [DllImport(Library, EntryPoint = "sm_paste", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status Paste(ulong handle, ulong revision, byte* data, uint length, in Transform transform);
+    [DllImport(Library, EntryPoint = "sm_paste", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status PasteIdentity(ulong handle, ulong revision, byte* data, uint length, IntPtr transform);
     [DllImport(Library, EntryPoint = "sm_page_to_viewport", CallingConvention = CallingConvention.Cdecl)]
     internal static extern Status PageToViewport(in Viewport viewport, in Point input, out Point output);
     [DllImport(Library, EntryPoint = "sm_viewport_to_page", CallingConvention = CallingConvention.Cdecl)]
