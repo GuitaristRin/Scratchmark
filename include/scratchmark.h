@@ -47,6 +47,7 @@ typedef struct SmBrushPoint {
 #define SM_FEATURE_BRUSH_GEOMETRY UINT64_C(1)
 /* M3 页面标识与视口；映射、页面域与快照格式参 spec/M3.md。 */
 #define SM_FEATURE_PAGE_VIEWPORT UINT64_C(2)
+#define SM_FEATURE_HIT_ERASE UINT64_C(4)
 
 uint32_t SM_CALL sm_abi_version(void);
 uint64_t SM_CALL sm_features(void);
@@ -85,6 +86,11 @@ typedef struct SmBounds {
 /* 页面标识为宿主选择的稳定键，0 表示未设置。 */
 SmStatus SM_CALL sm_get_page_id(SmHandle handle, uint64_t *out_page_id);
 SmStatus SM_CALL sm_set_page_id(SmHandle handle, uint64_t page_id);
+SmStatus SM_CALL sm_hit_test(SmHandle handle, uint64_t revision,
+    double x, double y, double tolerance,
+    uint32_t *out_index, uint32_t *out_found);
+SmStatus SM_CALL sm_erase_stroke(SmHandle handle, uint64_t revision,
+    uint32_t index);
 /* 视口 <-> 页面纯函数：viewport = page * scale + offset；线宽按 scale 缩放。 */
 SmStatus SM_CALL sm_page_to_viewport(const SmViewport *viewport,
     const SmPoint *in, SmPoint *out);

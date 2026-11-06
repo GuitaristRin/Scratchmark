@@ -127,6 +127,8 @@ pub unsafe extern "C" fn sm_load(handle: u64, data: *const u8, length: u32) -> u
 #[cfg(test)]
 mod brush_tests;
 #[cfg(test)]
+mod hit_tests;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod viewport_tests;
@@ -157,6 +159,37 @@ pub unsafe extern "C" fn sm_read_brush_points(
         }
         Ok(())
     })
+}
+
+/// # Safety
+/// 输出指针必须满足 spec/M0.md 的可写、对齐与独占约束；语义参 spec/M4.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_hit_test(
+    handle: u64,
+    revision: u64,
+    x: f64,
+    y: f64,
+    tolerance: f64,
+    out_index: *mut u32,
+    out_found: *mut u32,
+) -> u32 {
+    guard(|| {
+        required(out_index)?;
+        required(out_found)?;
+        let hit = with_doc(handle, |d| d.hit_test(revision, x, y, tolerance))?;
+        unsafe {
+            out_index.write(hit.unwrap_or(0));
+            out_found.write(u32::from(hit.is_some()));
+        }
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 句柄必须有效；语义参 spec/M4.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_erase_stroke(handle: u64, revision: u64, index: u32) -> u32 {
+    guard(|| with_doc(handle, |d| d.erase_stroke(revision, index)))
 }
 
 /// # Safety
