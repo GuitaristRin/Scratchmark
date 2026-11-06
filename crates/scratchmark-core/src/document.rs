@@ -22,6 +22,12 @@ pub(crate) enum Edit {
         stroke: Option<Stroke>,
     },
     Replace(Vec<ReplaceOp>),
+    /// 整批插入（粘贴）：`index` 是插入位置，`strokes` 在历史里时才有值。
+    Insert {
+        index: usize,
+        count: usize,
+        strokes: Option<Vec<Stroke>>,
+    },
 }
 
 impl Edit {
@@ -34,6 +40,12 @@ impl Edit {
                 ..
             } => (stroke.points.len(), 1),
             Edit::Add(None) | Edit::Erase { stroke: None, .. } => (0, 0),
+            Edit::Insert { strokes, .. } => strokes.as_ref().map_or((0, 0), |list| {
+                (
+                    list.iter().map(|s| s.points.len()).sum::<usize>(),
+                    list.len(),
+                )
+            }),
             Edit::Replace(ops) => ops.iter().fold((0, 0), |(points, strokes), op| {
                 let before = op.before.as_ref().map_or((0, 0), |s| (s.points.len(), 1));
                 let after = op.after.as_ref().map_or((0, 0), |list| {
@@ -199,6 +211,22 @@ impl Document {
                     }
                     d.redo.push(Edit::Replace(ops));
                 }
+                Edit::Insert {
+                    index,
+                    count,
+                    strokes,
+                } => {
+                    debug_assert!(strokes.is_none());
+                    if index + count > d.strokes.len() {
+                        return Err(Error::Internal);
+                    }
+                    let taken: Vec<Stroke> = d.strokes.drain(index..index + count).collect();
+                    d.redo.push(Edit::Insert {
+                        index,
+                        count,
+                        strokes: Some(taken),
+                    });
+                }
             }
             Ok(())
         })
@@ -238,6 +266,23 @@ impl Document {
                     }
                     d.undo.push(Edit::Replace(ops));
                 }
+                Edit::Insert {
+                    index,
+                    count,
+                    strokes,
+                } => {
+                    let batch = strokes.ok_or(Error::Internal)?;
+                    debug_assert_eq!(batch.len(), count);
+                    if index > d.strokes.len() {
+                        return Err(Error::Internal);
+                    }
+                    d.strokes.splice(index..index, batch);
+                    d.undo.push(Edit::Insert {
+                        index,
+                        count,
+                        strokes: None,
+                    });
+                }
             }
             Ok(())
         })
@@ -268,6 +313,22 @@ impl Document {
         } else {
             Ok(())
         }
+    }
+
+    /// M6 / M7 的按索引操作共用同一套规则：全部有效、不得重复、顺序任意。
+    pub(crate) fn sorted_indices(&self, indices: &[u32]) -> Result<Vec<usize>> {
+        let mut sorted: Vec<usize> = indices.iter().map(|&index| index as usize).collect();
+        sorted.sort_unstable();
+        if sorted.windows(2).any(|pair| pair[0] == pair[1]) {
+            return Err(Error::InvalidArgument);
+        }
+        if sorted
+            .last()
+            .is_some_and(|&index| index >= self.strokes.len())
+        {
+            return Err(Error::InvalidArgument);
+        }
+        Ok(sorted)
     }
 
     pub fn page_id(&self) -> u64 {

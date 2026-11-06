@@ -40,18 +40,7 @@ impl Document {
         if indices.is_empty() {
             return Ok(());
         }
-        let mut sorted: Vec<usize> = indices.iter().map(|&index| index as usize).collect();
-        sorted.sort_unstable();
-        // 重复索引不猜宿主意图：直接拒绝，避免“删两次”语义含混。
-        if sorted.windows(2).any(|pair| pair[0] == pair[1]) {
-            return Err(Error::InvalidArgument);
-        }
-        if sorted
-            .last()
-            .is_some_and(|&index| index >= self.strokes.len())
-        {
-            return Err(Error::InvalidArgument);
-        }
+        let sorted = self.sorted_indices(indices)?;
 
         self.edit(move |d| {
             d.discard_redo();
