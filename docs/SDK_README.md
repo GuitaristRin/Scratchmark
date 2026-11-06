@@ -1,6 +1,6 @@
 # Scratchmark M0 开发 SDK
 
-这是无 UI 的实验性原生引擎，SDK 0.4.0 / ABI 1，快照格式 1 与 2（页面标识），能力位 bit 0 支持平滑 / 压力派生读取，bit 1 支持页面标识与视口变换，bit 2 支持命中测试与整笔擦除。不提供稳定发布兼容承诺；原始行为参 `spec/M0.md`，派生笔刷参 `spec/M2.md`，页面标识与视口参 `spec/M3.md`，命中与擦除参 `spec/M4.md`。
+这是无 UI 的实验性原生引擎，SDK 0.5.0 / ABI 1，快照格式 1 与 2（页面标识），能力位 bit 0 支持平滑 / 压力派生读取，bit 1 支持页面标识与视口变换，bit 2 支持命中测试与整笔擦除，bit 3 支持沿擦除路径的局部擦除。不提供稳定发布兼容承诺；原始行为参 `spec/M0.md`，派生笔刷参 `spec/M2.md`，页面标识与视口参 `spec/M3.md`，命中与整笔擦除参 `spec/M4.md`，局部擦除参 `spec/M5.md`。
 
 ## 包内容
 
@@ -31,7 +31,7 @@ Linux x86_64 GNU 使用 `tools/build-sdk.sh` 与 `tools/verify-sdk.sh`，包内�
 
 ## 调用顺序
 
-1. 动态加载库，核对 `sm_abi_version()`；使用派生笔刷需 `sm_features()` bit 0，页面标识 / 视口需 bit 1。创建句柄，可 `sm_set_page_id` 绑定宿主页面键。
+1. 动态加载库，核对 `sm_abi_version()`；使用派生笔刷需 `sm_features()` bit 0，页面标识 / 视口需 bit 1，命中 / 整笔擦除需 bit 2，局部擦除需 bit 3。创建句柄，可 `sm_set_page_id` 绑定宿主页面键。
 2. `sm_begin` → 一次或多次 `sm_append`；每次输入后均可读取活动笔迹。
 3. 用 `sm_get_state` 取得 revision，以同一 revision 读取笔划元数据及分段点；若状态改变，重新取得 revision。
 4. `sm_finish` 确认笔划或 `sm_cancel` 丢弃；空闲时可 undo / redo。
@@ -42,16 +42,19 @@ Linux x86_64 GNU 使用 `tools/build-sdk.sh` 与 `tools/verify-sdk.sh`，包内�
 
 ## 当前能力与限制
 
-支持固定宽度原始折线、活动笔迹、边界、整笔历史、可编辑快照、页面标识，可配置因果平滑与压力笔宽的派生读取，页面坐标 ↔ 视口坐标的纯函数变换，以及原始中心线命中与整笔擦除。原始样本不改动；没有窗口或绘图后端，视口由宿主保存。预测、局部擦除、套索、多页管理和设备防误触未实现。
+支持固定宽度原始折线、活动笔迹、边界、整笔历史、可编辑快照、页面标识，可配置因果平滑与压力笔宽的派生读取，页面坐标 ↔ 视口坐标的纯函数变换，原始中心线命中与整笔擦除，以及沿擦除路径切分笔划的局部擦除。原始样本不改动；没有窗口或绘图后端，视口由宿主保存。预测、套索、形状工具、多页管理和设备防误触未实现。
 
 设置了页面标识的文档 `sm_save` 写格式 2（魔数 `SCRATCH2` + u64 页面标识），未设置仍写格式 1；`sm_load` 两者都接受，双方非零且不同的页面标识拒绝载入。`sm_page_to_viewport` 等变换是纯函数，`SmViewport` 与显示配置一样由宿主保存，不入快照、不影响 revision。
 
 `sm_read_brush_points` / C# `ReadBrushPoints` 接受 Alpha、MinWidthRatio 与压力开关，输出中心线及逐点完整笔宽。无压力样本仍为固定线宽；Alpha=1 关闭平滑。配置须显式有效，快照不存读取配置，宿主需一并保留它们才能重现相同外观。当前平滑会有采样相关滞后，不自动贴回笔尾；本轮未验收实机手感。
 
-`sm_hit_test` / C# `HitTest` 只在已提交笔划中按原始中心线查找，多命中取最上层，容差为页面单位；活动笔划不参与。`sm_erase_stroke` / C# `EraseStroke` 只在空闲时按索引删除整笔，revision 不匹配返回 `STALE_REVISION`，撤销恢复原 z 序。局部擦除、套索和选择尚未实现。
+`sm_hit_test` / C# `HitTest` 只在已提交笔划中按原始中心线查找，多命中取最上层，容差为页面单位；活动笔划不参与。`sm_erase_stroke` / C# `EraseStroke` 只在空闲时按索引删除整笔，revision 不匹配返回 `STALE_REVISION`，撤销恢复原 z 序。
 
 Windows 包验证 Windows x64 GNU 原生 C 动态调用与静态链接，以及 .NET 9 C# 调用。C# 用法为 `using var engine = new Scratchmark.Engine(absoluteDllPath)`；每个文档协调调用与 Dispose，错误状态由 `ScratchmarkException.Status` 保留。`STALE_REVISION` 由调用方重新获取状态；文件事务仍由宿主负责。
 
 MSVC、UWP / .NET Native 与 Android JNI / AAR 尚未验收。SO 必须按目标系统和 CPU 另行构建，不可通过改扩展名获得。C# 的 INTERNAL 停用 / 销毁策略及 finalizer 兜底已有代码，但未通过故障注入或强制 GC 验证；正常调用与显式释放已实测。
 
 实际呈现由前端完成；此包不能证明手感或端到端延迟。未进行性能基准测试，不承诺每秒点数或调用开销比例。授权与发布策略仍待确定，本次交付是本地开发验收包。
+
+
+`sm_erase_path` / C# `ErasePath` 接受页面坐标折线与半径，删除笔划中心线落在该范围内（闭区域）的部分，其余切分为片段：片段继承宽度与颜色、占据原索引，一次手势只产生一个撤销条目。切点坐标按线性插值、时间取整到微秒；相切（恰好等于半径）不切分；没有任何笔划受影响时不递增 revision。半径由宿主按视口换算后传入（可用 `sm_width_viewport_to_page`），引擎不内置设备像素或触控目标尺寸。套索、形状工具与选区移动尚未实现。
