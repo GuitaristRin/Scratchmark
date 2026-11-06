@@ -4,6 +4,7 @@ mod codec;
 mod document;
 mod erase;
 mod hit;
+mod select;
 mod viewport;
 
 pub use brush::{BrushOptions, BrushPoint};
