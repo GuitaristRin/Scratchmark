@@ -2,7 +2,7 @@
 
 可嵌入的手写与页面批注模块。
 
-Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔迹与批注。当前 SDK 0.5.0 提供实验核心、C ABI 与 .NET 9 C# 适配；能力与验证边界见 [当前状态](docs/STATE_2026-11-05.md)。
+Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔迹与批注。当前 SDK 0.6.0 提供实验核心、C ABI 与 .NET 9 C# 适配；能力与验证边界见 [当前状态](docs/STATE_2026-11-06.md)。
 
 ## 当前范围
 
@@ -12,6 +12,7 @@ Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔�
 - 页面标识与页面坐标 ↔ 视口坐标的纯函数变换；缩放平移后笔迹与页面内容对应。
 - 原始中心线命中测试与整笔擦除；删除进入撤销历史，撤销恢复原 z 序。
 - 沿擦除路径的局部擦除：按原始中心线切分笔划，片段继承宽度与颜色、占据原索引，一次手势只占一个撤销条目。
+- 套索命中（只读查询）与按索引批量删除、清空；一次调用只占一个撤销条目，引擎不保存选区。
 - Windows 原生动态 / 静态与 .NET 9 C# 实验适配；Linux x86_64 GNU 动态 / 静态接入与 SDK 独立验收已复跑。设备前端与手感未验证。
 
 PezMax-One 的课本／试卷批注是明确的后续接入场景。二进制 SDK 接入不必依赖 Git submodule，源码依赖作为另一种可选方式；本阶段不修改 PezMax-One，也不建立 submodule。
@@ -50,10 +51,12 @@ Git 远端使用 SSH：`git@github.com:GuitaristRin/Scratchmark.git`。
 - [M4 命中与擦除规格 - Canon](spec/M4.md)
 - [M5 局部擦除任务卡 - Canon](docs/IMPLEMENTATION_M5.md)
 - [M5 局部擦除规格 - Canon](spec/M5.md)
+- [M6 选择与批量删除任务卡 - Canon](docs/IMPLEMENTATION_M6.md)
+- [M6 选择与批量删除规格 - Canon](spec/M6.md)
 - [M0 实验规格 - Canon](spec/M0.md)
 - [C 接口声明](include/scratchmark.h)
 - [SDK 使用说明](docs/SDK_README.md)
-- [当前状态](docs/STATE_2026-11-05.md)
+- [当前状态](docs/STATE_2026-11-06.md)
 - [主流移动便签样本探索](docs/REFERENCE_FINDINGS.md)
 - [多输入与语言选型提案 - Draft](docs/PROPOSALS_2026-11-03.md)
 - [输入与宿主约束核查 - Draft](docs/research/2026-11-03-input-and-host-evidence.md)
