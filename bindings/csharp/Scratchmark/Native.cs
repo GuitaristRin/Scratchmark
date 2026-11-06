@@ -35,8 +35,8 @@ internal static unsafe class Native
             }
             // 库保持到进程结束，避免 finalizer 或在途调用访问已卸载代码。
             if (AbiVersion() != 1) throw new NotSupportedException("Expected Scratchmark ABI 1.");
-            if (!NativeLibrary.TryGetExport(library, "sm_features", out _) || (Features() & 3) != 3)
-                throw new NotSupportedException("SDK does not support M2 brush geometry or M3 page/viewport.");
+            if (!NativeLibrary.TryGetExport(library, "sm_features", out _) || (Features() & 7) != 7)
+                throw new NotSupportedException("SDK does not support M2 brush, M3 page/viewport or M4 hit/erase.");
         }
     }
 
@@ -78,6 +78,11 @@ internal static unsafe class Native
     internal static extern Status GetPageId(ulong handle, out ulong pageId);
     [DllImport(Library, EntryPoint = "sm_set_page_id", CallingConvention = CallingConvention.Cdecl)]
     internal static extern Status SetPageId(ulong handle, ulong pageId);
+    [DllImport(Library, EntryPoint = "sm_hit_test", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status HitTest(ulong handle, ulong revision, double x, double y, double tolerance,
+        out uint index, out uint found);
+    [DllImport(Library, EntryPoint = "sm_erase_stroke", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status EraseStroke(ulong handle, ulong revision, uint index);
     [DllImport(Library, EntryPoint = "sm_page_to_viewport", CallingConvention = CallingConvention.Cdecl)]
     internal static extern Status PageToViewport(in Viewport viewport, in Point input, out Point output);
     [DllImport(Library, EntryPoint = "sm_viewport_to_page", CallingConvention = CallingConvention.Cdecl)]

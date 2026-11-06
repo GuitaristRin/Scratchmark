@@ -36,6 +36,8 @@ public sealed class ScratchmarkException(Status status) : Exception($"Scratchmar
     public Status Status { get; } = status;
 }
 
+public readonly record struct HitResult(bool Found, uint Index);
+
 [StructLayout(LayoutKind.Sequential)]
 public struct BrushOptions
 {

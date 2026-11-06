@@ -78,6 +78,20 @@ public sealed unsafe class Engine : IDisposable
         lock (gate) Check(Native.SetPageId(Handle, pageId));
     }
 
+    public HitResult HitTest(ulong revision, double x, double y, double tolerance)
+    {
+        lock (gate)
+        {
+            Check(Native.HitTest(Handle, revision, x, y, tolerance, out uint index, out uint found));
+            return new HitResult(found != 0, index);
+        }
+    }
+
+    public void EraseStroke(ulong revision, uint index)
+    {
+        lock (gate) Check(Native.EraseStroke(Handle, revision, index));
+    }
+
     public byte[] Save()
     {
         lock (gate)
