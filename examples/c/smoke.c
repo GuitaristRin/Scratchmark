@@ -41,6 +41,9 @@ _Static_assert(sizeof(SmBounds) == 32, "SmBounds ABI");
     X(SmStatus, sm_hit_test, (SmHandle, uint64_t, double, double, double, uint32_t *, uint32_t *)) \
     X(SmStatus, sm_erase_stroke, (SmHandle, uint64_t, uint32_t)) \
     X(SmStatus, sm_erase_path, (SmHandle, uint64_t, const SmPoint *, uint32_t, double)) \
+    X(SmStatus, sm_lasso_hits, (SmHandle, uint64_t, const SmPoint *, uint32_t, uint32_t *, uint32_t, uint32_t *)) \
+    X(SmStatus, sm_erase_indices, (SmHandle, uint64_t, const uint32_t *, uint32_t)) \
+    X(SmStatus, sm_clear, (SmHandle, uint64_t)) \
     X(SmStatus, sm_page_to_viewport, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_viewport_to_page, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_width_page_to_viewport, (const SmViewport *, double, double *)) \
@@ -328,6 +331,74 @@ static int partial_erase_smoke(void) {
     return 0;
 }
 
+/* 套索命中与批量删除：查询模式、容量不足、一次撤销、清空。 */
+static int selection_smoke(void) {
+    REQUIRE((api.sm_features() & SM_FEATURE_SELECTION) != 0);
+    SmHandle handle = 0;
+    STATUS(api.sm_create(&handle), SM_OK);
+    SmSample lines[3][2] = {
+        {{0.0, 0.0, 0, 0.0f, 0}, {10.0, 0.0, 1, 0.0f, 0}},
+        {{100.0, 0.0, 0, 0.0f, 0}, {110.0, 0.0, 1, 0.0f, 0}},
+        {{500.0, 0.0, 0, 0.0f, 0}, {510.0, 0.0, 1, 0.0f, 0}}
+    };
+    for (int i = 0; i < 3; i++) {
+        STATUS(api.sm_begin(handle, 2.0, 0), SM_OK);
+        STATUS(api.sm_append(handle, lines[i], 2), SM_OK);
+        STATUS(api.sm_finish(handle), SM_OK);
+    }
+    SmState state;
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    SmPoint lasso[4] = {{-20.0, -20.0}, {200.0, -20.0}, {200.0, 20.0}, {-20.0, 20.0}};
+
+    /* 查询模式：不写数组，只回报所需数量。 */
+    uint32_t written = 99, indices[8];
+    for (int i = 0; i < 8; i++) indices[i] = 77;
+    STATUS(api.sm_lasso_hits(handle, state.revision, lasso, 4, NULL, 0, &written), SM_BUFFER_TOO_SMALL);
+    REQUIRE(written == 2);
+    STATUS(api.sm_lasso_hits(handle, state.revision, lasso, 4, indices, 8, &written), SM_OK);
+    REQUIRE(written == 2 && indices[0] == 0 && indices[1] == 1 && indices[2] == 77);
+    STATUS(api.sm_lasso_hits(handle, state.revision, lasso, 4, indices, 1, &written), SM_BUFFER_TOO_SMALL);
+    REQUIRE(written == 2 && indices[0] == 0);
+    STATUS(api.sm_lasso_hits(handle, state.revision, lasso, 2, indices, 8, &written), SM_INVALID_ARGUMENT);
+    STATUS(api.sm_lasso_hits(handle, state.revision - 1, lasso, 4, indices, 8, &written), SM_STALE_REVISION);
+
+    /* 批量删除：一次调用一个撤销条目。 */
+    uint32_t duplicate[2] = {0, 0};
+    STATUS(api.sm_erase_indices(handle, state.revision, duplicate, 2), SM_INVALID_ARGUMENT);
+    uint32_t selected[2] = {0, 1};
+    STATUS(api.sm_erase_indices(handle, state.revision, selected, 2), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.stroke_count == 1 && state.can_redo == 0);
+    STATUS(api.sm_undo(handle), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.stroke_count == 3);
+
+    /* 活动笔划期间拒绝。 */
+    STATUS(api.sm_begin(handle, 2.0, 0), SM_OK);
+    SmSample active = {0.0, 30.0, 0, 0.0f, 0};
+    STATUS(api.sm_append(handle, &active, 1), SM_OK);
+    STATUS(api.sm_erase_indices(handle, state.revision, selected, 1), SM_INVALID_STATE);
+    STATUS(api.sm_clear(handle, state.revision), SM_INVALID_STATE);
+    STATUS(api.sm_cancel(handle), SM_OK);
+
+    /* 清空一个条目，一次撤销全部恢复；空文档清空不递增 revision。 */
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    STATUS(api.sm_clear(handle, state.revision), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.stroke_count == 0);
+    STATUS(api.sm_undo(handle), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.stroke_count == 3);
+    STATUS(api.sm_clear(handle, state.revision), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    uint64_t before = state.revision;
+    STATUS(api.sm_clear(handle, state.revision), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.revision == before);
+    STATUS(api.sm_destroy(handle), SM_OK);
+    return 0;
+}
+
 int main(int argc, char **argv) {
 #ifdef SM_STATIC
     if (argc != 2) { fprintf(stderr, "usage: smoke SNAPSHOT_PATH\n"); return 2; }
@@ -411,6 +482,7 @@ int main(int argc, char **argv) {
     if (brush_smoke()) { return 1; }
     if (viewport_smoke()) { return 1; }
     if (hit_erase_smoke()) { return 1; }
+    if (selection_smoke()) { return 1; }
     if (partial_erase_smoke()) { return 1; }
     printf("native smoke: %u checks passed\n", checks);
     return 0;
