@@ -4,7 +4,7 @@ use crate::{
 };
 use scratchmark_core::{
     Bounds, BrushOptions, BrushPoint, Error, MAX_BATCH, MAX_POINTS, MAX_SNAPSHOT, MAX_STROKES,
-    Point, Sample, State, StrokeInfo, Viewport,
+    Point, Sample, State, StrokeInfo, Transform, Viewport,
 };
 
 /// # Safety
@@ -135,6 +135,8 @@ mod select_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
+mod transform_tests;
+#[cfg(test)]
 mod viewport_tests;
 
 /// # Safety
@@ -262,6 +264,73 @@ pub unsafe extern "C" fn sm_erase_indices(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sm_clear(handle: u64, revision: u64) -> u32 {
     guard(|| with_doc(handle, |d| d.clear(revision)))
+}
+
+/// # Safety
+/// 索引与变换结构必须有效且对齐；语义参 spec/M7.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_transform_strokes(
+    handle: u64,
+    revision: u64,
+    indices: *const u32,
+    count: u32,
+    transform: *const Transform,
+) -> u32 {
+    guard(|| {
+        required(transform)?;
+        let list = unsafe { input(indices, count, MAX_STROKES)? };
+        let transform = unsafe { transform.read() };
+        with_doc(handle, |d| d.transform_strokes(revision, list, &transform))
+    })
+}
+
+/// # Safety
+/// 输出区必须有效、对齐且符合声明容量；NULL / 0 仅用于大小查询。语义参 spec/M7.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_copy_strokes(
+    handle: u64,
+    revision: u64,
+    indices: *const u32,
+    count: u32,
+    out_data: *mut u8,
+    capacity: u32,
+    out_required: *mut u32,
+) -> u32 {
+    guard(|| {
+        required(out_required)?;
+        let list = unsafe { input(indices, count, MAX_STROKES)? };
+        let slots = unsafe { output(out_data, capacity, MAX_SNAPSHOT)? };
+        let bytes = with_doc(handle, |d| d.copy_strokes(revision, list))?;
+        unsafe {
+            out_required.write(bytes.len() as u32);
+        }
+        if slots.len() < bytes.len() {
+            return Err(Error::BufferTooSmall);
+        }
+        slots[..bytes.len()].copy_from_slice(&bytes);
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 输入数据与变换结构必须在调用期间有效；语义参 spec/M7.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_paste(
+    handle: u64,
+    revision: u64,
+    data: *const u8,
+    length: u32,
+    transform: *const Transform,
+) -> u32 {
+    guard(|| {
+        let bytes = unsafe { input(data, length, MAX_SNAPSHOT)? };
+        let transform = if transform.is_null() {
+            None
+        } else {
+            unsafe { Some(transform.read()) }
+        };
+        with_doc(handle, |d| d.paste(revision, bytes, transform.as_ref()))
+    })
 }
 
 /// # Safety

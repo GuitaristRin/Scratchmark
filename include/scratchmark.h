@@ -52,6 +52,11 @@ typedef struct SmBrushPoint {
 #define SM_FEATURE_PARTIAL_ERASE UINT64_C(8)
 /* M6 套索命中与批量删除；多边形判定与索引规则参 spec/M6.md。 */
 #define SM_FEATURE_SELECTION UINT64_C(16)
+/* M7 选区变换与复制粘贴；矩阵语义与剪贴板格式参 spec/M7.md。 */
+#define SM_FEATURE_TRANSFORM UINT64_C(32)
+typedef struct SmTransform {
+    double m00, m01, m10, m11, dx, dy;
+} SmTransform;
 
 uint32_t SM_CALL sm_abi_version(void);
 uint64_t SM_CALL sm_features(void);
@@ -104,6 +109,14 @@ SmStatus SM_CALL sm_lasso_hits(SmHandle handle, uint64_t revision,
 SmStatus SM_CALL sm_erase_indices(SmHandle handle, uint64_t revision,
     const uint32_t *indices, uint32_t count);
 SmStatus SM_CALL sm_clear(SmHandle handle, uint64_t revision);
+/* 原位变换与剪贴板：复制产出格式 1 快照字节，粘贴只接受该格式。 */
+SmStatus SM_CALL sm_transform_strokes(SmHandle handle, uint64_t revision,
+    const uint32_t *indices, uint32_t count, const SmTransform *transform);
+SmStatus SM_CALL sm_copy_strokes(SmHandle handle, uint64_t revision,
+    const uint32_t *indices, uint32_t count,
+    uint8_t *out_data, uint32_t capacity, uint32_t *out_required);
+SmStatus SM_CALL sm_paste(SmHandle handle, uint64_t revision,
+    const uint8_t *data, uint32_t length, const SmTransform *transform);
 /* 视口 <-> 页面纯函数：viewport = page * scale + offset；线宽按 scale 缩放。 */
 SmStatus SM_CALL sm_page_to_viewport(const SmViewport *viewport,
     const SmPoint *in, SmPoint *out);
