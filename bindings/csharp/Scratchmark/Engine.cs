@@ -99,6 +99,36 @@ public sealed unsafe class Engine : IDisposable
             Check(Native.ErasePath(Handle, revision, points, (uint)path.Length, radius));
     }
 
+    /// <summary>套索命中：返回升序笔划索引；命中为零时返回空数组，不产生异常。</summary>
+    public uint[] LassoHits(ulong revision, ReadOnlySpan<Point> path)
+    {
+        lock (gate)
+        fixed (Point* points = path)
+        {
+            uint length = (uint)path.Length;
+            // 先按容量 0 查询所需数量：BUFFER_TOO_SMALL 是查询成功的信号，不是错误。
+            Status probe = Native.LassoHits(Handle, revision, points, length, null, 0, out uint required);
+            if (probe != Status.Ok && probe != Status.BufferTooSmall) Check(probe);
+            if (required == 0) return [];
+            uint[] buffer = new uint[required];
+            fixed (uint* indices = buffer)
+                Check(Native.LassoHits(Handle, revision, points, length, indices, required, out _));
+            return buffer;
+        }
+    }
+
+    public void EraseIndices(ulong revision, ReadOnlySpan<uint> indices)
+    {
+        lock (gate)
+        fixed (uint* list = indices)
+            Check(Native.EraseIndices(Handle, revision, list, (uint)indices.Length));
+    }
+
+    public void Clear(ulong revision)
+    {
+        lock (gate) Check(Native.Clear(Handle, revision));
+    }
+
     public byte[] Save()
     {
         lock (gate)

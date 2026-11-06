@@ -35,8 +35,8 @@ internal static unsafe class Native
             }
             // 库保持到进程结束，避免 finalizer 或在途调用访问已卸载代码。
             if (AbiVersion() != 1) throw new NotSupportedException("Expected Scratchmark ABI 1.");
-            if (!NativeLibrary.TryGetExport(library, "sm_features", out _) || (Features() & 15) != 15)
-                throw new NotSupportedException("SDK does not support M2 brush, M3 page/viewport, M4 hit/erase or M5 partial erase.");
+            if (!NativeLibrary.TryGetExport(library, "sm_features", out _) || (Features() & 31) != 31)
+                throw new NotSupportedException("SDK does not support M2 brush, M3 page/viewport, M4 hit/erase, M5 partial erase or M6 selection.");
         }
     }
 
@@ -85,6 +85,13 @@ internal static unsafe class Native
     internal static extern Status EraseStroke(ulong handle, ulong revision, uint index);
     [DllImport(Library, EntryPoint = "sm_erase_path", CallingConvention = CallingConvention.Cdecl)]
     internal static extern Status ErasePath(ulong handle, ulong revision, Point* path, uint count, double radius);
+    [DllImport(Library, EntryPoint = "sm_lasso_hits", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status LassoHits(ulong handle, ulong revision, Point* path, uint count,
+        uint* indices, uint capacity, out uint written);
+    [DllImport(Library, EntryPoint = "sm_erase_indices", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status EraseIndices(ulong handle, ulong revision, uint* indices, uint count);
+    [DllImport(Library, EntryPoint = "sm_clear", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status Clear(ulong handle, ulong revision);
     [DllImport(Library, EntryPoint = "sm_page_to_viewport", CallingConvention = CallingConvention.Cdecl)]
     internal static extern Status PageToViewport(in Viewport viewport, in Point input, out Point output);
     [DllImport(Library, EntryPoint = "sm_viewport_to_page", CallingConvention = CallingConvention.Cdecl)]

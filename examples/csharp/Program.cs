@@ -47,6 +47,7 @@ internal static unsafe partial class Program
         PageViewport(args[0], fixture);
         HitErase(args[0]);
         LocalErase(args[0]);
+        Selection(args[0]);
         Console.WriteLine($"C# smoke: {checks} checks passed");
         return 0;
     }
