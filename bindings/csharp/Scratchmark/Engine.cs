@@ -92,6 +92,13 @@ public sealed unsafe class Engine : IDisposable
         lock (gate) Check(Native.EraseStroke(Handle, revision, index));
     }
 
+    public void ErasePath(ulong revision, ReadOnlySpan<Point> path, double radius)
+    {
+        lock (gate)
+        fixed (Point* points = path)
+            Check(Native.ErasePath(Handle, revision, points, (uint)path.Length, radius));
+    }
+
     public byte[] Save()
     {
         lock (gate)
