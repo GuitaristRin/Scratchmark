@@ -67,7 +67,7 @@ echo "== exports =="
 expected_exports=(sm_abi_version sm_features sm_create sm_destroy sm_begin sm_append
     sm_finish sm_cancel sm_undo sm_redo sm_get_state sm_get_stroke sm_read_points
     sm_save sm_load sm_read_brush_points
-    sm_get_page_id sm_set_page_id sm_hit_test sm_erase_stroke sm_erase_path sm_lasso_hits sm_erase_indices sm_clear
+    sm_get_page_id sm_set_page_id sm_hit_test sm_erase_stroke sm_erase_path sm_lasso_hits sm_erase_indices sm_clear sm_transform_strokes sm_copy_strokes sm_paste
     sm_page_to_viewport sm_viewport_to_page
     sm_width_page_to_viewport sm_width_viewport_to_page sm_bounds_page_to_viewport)
 nm -D "$sdk/bin/libscratchmark.so" | tee "$work/exports.txt"

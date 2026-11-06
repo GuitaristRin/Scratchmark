@@ -44,6 +44,9 @@ _Static_assert(sizeof(SmBounds) == 32, "SmBounds ABI");
     X(SmStatus, sm_lasso_hits, (SmHandle, uint64_t, const SmPoint *, uint32_t, uint32_t *, uint32_t, uint32_t *)) \
     X(SmStatus, sm_erase_indices, (SmHandle, uint64_t, const uint32_t *, uint32_t)) \
     X(SmStatus, sm_clear, (SmHandle, uint64_t)) \
+    X(SmStatus, sm_transform_strokes, (SmHandle, uint64_t, const uint32_t *, uint32_t, const SmTransform *)) \
+    X(SmStatus, sm_copy_strokes, (SmHandle, uint64_t, const uint32_t *, uint32_t, uint8_t *, uint32_t, uint32_t *)) \
+    X(SmStatus, sm_paste, (SmHandle, uint64_t, const uint8_t *, uint32_t, const SmTransform *)) \
     X(SmStatus, sm_page_to_viewport, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_viewport_to_page, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_width_page_to_viewport, (const SmViewport *, double, double *)) \
@@ -399,6 +402,94 @@ static int selection_smoke(void) {
     return 0;
 }
 
+/* 选区变换与复制粘贴：平移、缩放、剪贴板字节与格式 2 拒绝。 */
+static int transform_smoke(void) {
+    REQUIRE((api.sm_features() & SM_FEATURE_TRANSFORM) != 0);
+    SmHandle handle = 0;
+    STATUS(api.sm_create(&handle), SM_OK);
+    SmSample first[2] = {{0.0, 0.0, 0, 0.0f, 0}, {10.0, 0.0, 1, 0.0f, 0}};
+    SmSample second[2] = {{100.0, 0.0, 0, 0.0f, 0}, {110.0, 0.0, 1, 0.0f, 0}};
+    STATUS(api.sm_begin(handle, 2.0, 0x11223344), SM_OK);
+    STATUS(api.sm_append(handle, first, 2), SM_OK);
+    STATUS(api.sm_finish(handle), SM_OK);
+    STATUS(api.sm_begin(handle, 2.0, 0), SM_OK);
+    STATUS(api.sm_append(handle, second, 2), SM_OK);
+    STATUS(api.sm_finish(handle), SM_OK);
+    SmState state;
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+
+    /* 平移：被选中的笔划移动，未选中的不动，一次撤销可回退。 */
+    SmTransform shift = {1.0, 0.0, 0.0, 1.0, 10.0, 5.0};
+    uint32_t index0 = 0;
+    STATUS(api.sm_transform_strokes(handle, state.revision, &index0, 1, &shift), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    SmStrokeInfo info;
+    STATUS(api.sm_get_stroke(handle, state.revision, 0, &info), SM_OK);
+    REQUIRE(info.min_x == 9.0 && info.min_y == 4.0 && info.width == 2.0);
+    STATUS(api.sm_get_stroke(handle, state.revision, 1, &info), SM_OK);
+    REQUIRE(info.min_x == 99.0);
+    STATUS(api.sm_undo(handle), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    STATUS(api.sm_get_stroke(handle, state.revision, 0, &info), SM_OK);
+    REQUIRE(info.min_x == -1.0);
+
+    /* 等比缩放 2×：det = 4，线宽 ×2。 */
+    SmTransform twice = {2.0, 0.0, 0.0, 2.0, 0.0, 0.0};
+    STATUS(api.sm_transform_strokes(handle, state.revision, &index0, 1, &twice), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    STATUS(api.sm_get_stroke(handle, state.revision, 0, &info), SM_OK);
+    REQUIRE(info.min_x == -2.0 && info.width == 4.0);
+    STATUS(api.sm_undo(handle), SM_OK);
+
+    /* 退化矩阵与 NULL 都拒绝。 */
+    SmTransform flat = {1.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    STATUS(api.sm_transform_strokes(handle, state.revision, &index0, 1, &flat), SM_INVALID_ARGUMENT);
+    STATUS(api.sm_transform_strokes(handle, state.revision, &index0, 1, NULL), SM_INVALID_ARGUMENT);
+
+    /* 复制：查询大小、取字节、粘贴回同一文档并置顶。 */
+    uint32_t both[2] = {0, 1};
+    uint32_t required = 0;
+    STATUS(api.sm_copy_strokes(handle, state.revision, both, 2, NULL, 0, &required), SM_BUFFER_TOO_SMALL);
+    REQUIRE(required > 8);
+    uint8_t *clipboard = malloc(required);
+    REQUIRE(clipboard != NULL);
+    STATUS(api.sm_copy_strokes(handle, state.revision, both, 2, clipboard, required, &required), SM_OK);
+    REQUIRE(memcmp(clipboard, "SCRATCH\0", 8) == 0);
+    SmTransform drop = {1.0, 0.0, 0.0, 1.0, 0.0, 200.0};
+    STATUS(api.sm_paste(handle, state.revision, clipboard, required, &drop), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.stroke_count == 4);
+    STATUS(api.sm_get_stroke(handle, state.revision, 2, &info), SM_OK);
+    REQUIRE(info.min_y == 199.0);
+    STATUS(api.sm_undo(handle), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.stroke_count == 2);
+    STATUS(api.sm_redo(handle), SM_OK);
+
+    /* 格式 2（整份文档）不能当剪贴板内容；跨文档粘贴可以。 */
+    STATUS(api.sm_set_page_id(handle, 7), SM_OK);
+    uint32_t document_size = 0;
+    STATUS(api.sm_save(handle, NULL, 0, &document_size), SM_BUFFER_TOO_SMALL);
+    uint8_t *document_bytes = malloc(document_size);
+    REQUIRE(document_bytes != NULL);
+    STATUS(api.sm_save(handle, document_bytes, document_size, &document_size), SM_OK);
+    REQUIRE(memcmp(document_bytes, "SCRATCH2", 8) == 0);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    STATUS(api.sm_paste(handle, state.revision, document_bytes, document_size, NULL), SM_INVALID_DATA);
+    free(document_bytes);
+    SmHandle other = 0;
+    STATUS(api.sm_create(&other), SM_OK);
+    STATUS(api.sm_get_state(other, &state), SM_OK);
+    STATUS(api.sm_paste(other, state.revision, clipboard, required, NULL), SM_OK);
+    STATUS(api.sm_get_state(other, &state), SM_OK);
+    REQUIRE(state.stroke_count == 2);
+    free(clipboard);
+    STATUS(api.sm_destroy(other), SM_OK);
+    STATUS(api.sm_destroy(handle), SM_OK);
+    return 0;
+}
+
 int main(int argc, char **argv) {
 #ifdef SM_STATIC
     if (argc != 2) { fprintf(stderr, "usage: smoke SNAPSHOT_PATH\n"); return 2; }
@@ -482,6 +573,7 @@ int main(int argc, char **argv) {
     if (brush_smoke()) { return 1; }
     if (viewport_smoke()) { return 1; }
     if (hit_erase_smoke()) { return 1; }
+    if (transform_smoke()) { return 1; }
     if (selection_smoke()) { return 1; }
     if (partial_erase_smoke()) { return 1; }
     printf("native smoke: %u checks passed\n", checks);
