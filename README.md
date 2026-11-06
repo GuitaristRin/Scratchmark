@@ -10,6 +10,7 @@ Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔�
 - 可编辑快照导出 / 导入（格式 2 携带页面标识）；宿主执行实际文件读写与像素呈现。
 - 可配置在线平滑、逐点压力笔宽的派生读取，原始样本保持；显示配置与视口由宿主保留。
 - 页面标识与页面坐标 ↔ 视口坐标的纯函数变换；缩放平移后笔迹与页面内容对应。
+- 原始中心线命中测试与整笔擦除；删除进入撤销历史，撤销恢复原 z 序。
 - Windows 原生动态 / 静态与 .NET 9 C# 实验适配；Linux x86_64 GNU 动态 / 静态接入与 SDK 独立验收已复跑。设备前端与手感未验证。
 
 PezMax-One 的课本／试卷批注是明确的后续接入场景。二进制 SDK 接入不必依赖 Git submodule，源码依赖作为另一种可选方式；本阶段不修改 PezMax-One，也不建立 submodule。
@@ -44,6 +45,8 @@ Git 远端使用 SSH：`git@github.com:GuitaristRin/Scratchmark.git`。
 - [M2 派生几何规格 - Canon](spec/M2.md)
 - [M3 页面标识与视口变换任务卡 - Canon](docs/IMPLEMENTATION_M3.md)
 - [M3 页面标识与视口规格 - Canon](spec/M3.md)
+- [M4 命中测试与整笔擦除任务卡 - Canon](docs/IMPLEMENTATION_M4.md)
+- [M4 命中与擦除规格 - Canon](spec/M4.md)
 - [M0 实验规格 - Canon](spec/M0.md)
 - [C 接口声明](include/scratchmark.h)
 - [SDK 使用说明](docs/SDK_README.md)
