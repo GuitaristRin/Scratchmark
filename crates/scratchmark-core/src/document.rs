@@ -3,6 +3,17 @@ use crate::{
     Stroke, StrokeInfo,
 };
 
+/// 一次“按下标替换”：`index` 是**施加时刻**的索引，`before` / `after` 恰好一份存活。
+///
+/// 局部擦除把一笔切成多笔，无法用“尾插 / 尾删”表达，因此历史必须记住位置与两侧内容。
+#[derive(Debug)]
+pub(crate) struct ReplaceOp {
+    pub index: usize,
+    pub after_count: usize,
+    pub before: Option<Stroke>,
+    pub after: Option<Vec<Stroke>>,
+}
+
 #[derive(Debug)]
 pub(crate) enum Edit {
     Add(Option<Stroke>),
@@ -10,28 +21,29 @@ pub(crate) enum Edit {
         index: usize,
         stroke: Option<Stroke>,
     },
+    Replace(Vec<ReplaceOp>),
 }
 
 impl Edit {
-    fn owns_stroke(&self) -> bool {
-        matches!(
-            self,
-            Edit::Add(Some(_))
-                | Edit::Erase {
-                    stroke: Some(_),
-                    ..
-                }
-        )
-    }
-
-    fn owned_points(&self) -> usize {
+    /// 该历史条目当前持有的点数与笔划数（用于“含历史在内”的预算）。
+    pub(crate) fn retained(&self) -> (usize, usize) {
         match self {
             Edit::Add(Some(stroke))
             | Edit::Erase {
                 stroke: Some(stroke),
                 ..
-            } => stroke.points.len(),
-            _ => 0,
+            } => (stroke.points.len(), 1),
+            Edit::Add(None) | Edit::Erase { stroke: None, .. } => (0, 0),
+            Edit::Replace(ops) => ops.iter().fold((0, 0), |(points, strokes), op| {
+                let before = op.before.as_ref().map_or((0, 0), |s| (s.points.len(), 1));
+                let after = op.after.as_ref().map_or((0, 0), |list| {
+                    (
+                        list.iter().map(|s| s.points.len()).sum::<usize>(),
+                        list.len(),
+                    )
+                });
+                (points + before.0 + after.0, strokes + before.1 + after.1)
+            }),
         }
     }
 }
@@ -64,19 +76,18 @@ impl Default for Document {
 }
 
 impl Document {
-    fn edit(&mut self, operation: impl FnOnce(&mut Self) -> Result<()>) -> Result<()> {
+    pub(crate) fn edit(&mut self, operation: impl FnOnce(&mut Self) -> Result<()>) -> Result<()> {
         let next = self.revision.checked_add(1).ok_or(Error::LimitExceeded)?;
         operation(self)?;
         self.revision = next;
         Ok(())
     }
 
-    fn discard_redo(&mut self) {
+    pub(crate) fn discard_redo(&mut self) {
         for edit in self.redo.drain(..) {
-            if edit.owns_stroke() {
-                self.retained_points -= edit.owned_points();
-                self.retained_strokes -= 1;
-            }
+            let (points, strokes) = edit.retained();
+            self.retained_points -= points;
+            self.retained_strokes -= strokes;
         }
     }
 
@@ -172,6 +183,22 @@ impl Document {
                         stroke: None,
                     });
                 }
+                Edit::Replace(mut ops) => {
+                    // 逆序回放：每个 index 只有在“该条目刚施加完”的状态下才成立。
+                    for op in ops.iter_mut().rev() {
+                        let before = op.before.take().ok_or(Error::Internal)?;
+                        if op.index + op.after_count > d.strokes.len() {
+                            return Err(Error::Internal);
+                        }
+                        let after: Vec<Stroke> = d
+                            .strokes
+                            .drain(op.index..op.index + op.after_count)
+                            .collect();
+                        d.strokes.insert(op.index, before);
+                        op.after = Some(after);
+                    }
+                    d.redo.push(Edit::Replace(ops));
+                }
             }
             Ok(())
         })
@@ -197,6 +224,19 @@ impl Document {
                         index,
                         stroke: Some(stroke),
                     });
+                }
+                Edit::Replace(mut ops) => {
+                    for op in ops.iter_mut() {
+                        let after = op.after.take().ok_or(Error::Internal)?;
+                        if op.index >= d.strokes.len() {
+                            return Err(Error::Internal);
+                        }
+                        let before = d.strokes.remove(op.index);
+                        op.after_count = after.len();
+                        d.strokes.splice(op.index..op.index, after);
+                        op.before = Some(before);
+                    }
+                    d.undo.push(Edit::Replace(ops));
                 }
             }
             Ok(())

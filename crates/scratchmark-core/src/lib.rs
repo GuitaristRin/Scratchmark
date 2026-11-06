@@ -2,6 +2,7 @@
 mod brush;
 mod codec;
 mod document;
+mod erase;
 mod hit;
 mod viewport;
 
