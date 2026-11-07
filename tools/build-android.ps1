@@ -54,21 +54,47 @@ foreach ($target in $targets) {
     $so = Join-Path $root "target/$($target.Rust)/release/libscratchmark.so"
     if (-not (Test-Path $so)) { throw "产物缺失: $so" }
 
+    Write-Host "== 构建 JNI 封装 $($target.Rust)"
+    & cargo build -p scratchmark-jni --release --target $target.Rust
+    if ($LASTEXITCODE -ne 0) { throw "JNI cargo build 失败: $($target.Rust)" }
+    $jniSo = Join-Path $root "target/$($target.Rust)/release/libscratchmark_jni.so"
+    if (-not (Test-Path $jniSo)) { throw "JNI 产物缺失: $jniSo" }
+
     $abiDir = Join-Path $root "$OutDir/jniLibs/$($target.Abi)"
     New-Item -ItemType Directory -Force -Path $abiDir | Out-Null
     Copy-Item $so (Join-Path $abiDir 'libscratchmark.so') -Force
+    Copy-Item $jniSo (Join-Path $abiDir 'libscratchmark_jni.so') -Force
 
     $nm = Join-Path $bin 'llvm-nm.exe'
     if (-not (Test-Path $nm)) { $nm = Join-Path $bin 'llvm-nm' }
+    $strip = Join-Path $bin 'llvm-strip.exe'
+    if (-not (Test-Path $strip)) { $strip = Join-Path $bin 'llvm-strip' }
+
+    # 先核对再 strip：strip 不改变导出符号，但先核对能给出更清楚的失败信息。
     $symbols = & $nm --defined-only --extern-only (Join-Path $abiDir 'libscratchmark.so') 2>&1
     $exported = ($symbols | Select-String -Pattern '\bT (sm_\w+)' -AllMatches |
         ForEach-Object { $_.Matches } | ForEach-Object { $_.Groups[1].Value }) | Sort-Object -Unique
     $missing = $expected | Where-Object { $exported -notcontains $_ }
     if ($missing) { throw "$($target.Abi) 缺少导出: $($missing -join ', ')" }
 
-    # 去掉符号与调试信息：手机上 5.7 MB/ABI 太重。
-    Write-Host ("   ok: {0} 个导出，{1:N0} 字节" -f $exported.Count, $size)
+    $jniSymbols = & $nm --defined-only --extern-only (Join-Path $abiDir 'libscratchmark_jni.so') 2>&1
+    $jniExported = ($jniSymbols | Select-String -Pattern '\bT (Java_\w+)' -AllMatches |
+        ForEach-Object { $_.Matches } | ForEach-Object { $_.Groups[1].Value }) | Sort-Object -Unique
+    $required = @('Java_com_scratchmark_Native_create', 'Java_com_scratchmark_Native_append',
+        'Java_com_scratchmark_Native_save', 'Java_com_scratchmark_Native_erasePath',
+        'Java_com_scratchmark_Native_brushPoints', 'Java_com_scratchmark_Native_cutStrokes')
+    $jniMissing = $required | Where-Object { $jniExported -notcontains $_ }
+    if ($jniMissing) { throw "$($target.Abi) 的 JNI 封装缺少导出: $($jniMissing -join ', ')" }
+
+    # 去掉符号与调试信息：手机上 5 MB/ABI 太重。
+    & $strip --strip-unneeded (Join-Path $abiDir 'libscratchmark.so')
+    & $strip --strip-unneeded (Join-Path $abiDir 'libscratchmark_jni.so')
+
+    $size = (Get-Item (Join-Path $abiDir 'libscratchmark.so')).Length
+    $jniSize = (Get-Item (Join-Path $abiDir 'libscratchmark_jni.so')).Length
+    Write-Host ("   ok: {0} 个 C 导出 / {1} 个 JNI 导出，{2:N0} + {3:N0} 字节" -f `
+            $exported.Count, $jniExported.Count, $size, $jniSize)
 }
 
-Write-Host "Android 产物: $OutDir/jniLibs/{arm64-v8a,armeabi-v7a,x86_64}/libscratchmark.so"
+Write-Host "Android 产物: $OutDir/jniLibs/{arm64-v8a,armeabi-v7a,x86_64}/{libscratchmark,libscratchmark_jni}.so"
 Write-Host "注意：只验证了编译与导出符号；本机无设备，未验证运行时。"

@@ -165,3 +165,8 @@ PezMax-One 的既有正典尚未在该仓更新；未来实际接入前，需在
 按 `docs/PLATFORMS.md` 分层：Windows 与 WebAssembly **真跑**（C/WASM 冒烟）；Android 与 Linux **只证明能编、符号对**
 （Android 三 ABI 由 NDK 核对 52 个导出；Linux 只能出 musl 静态库，cargo 明确丢弃 musl 的 cdylib）；iOS 需要 macOS 故暂不做。
 不许把"能编"写成"支持"。
+## D25 - M19 范围：Android JNI 封装（2026-11-08）
+
+依据：目标 ②。Kotlin 宿主需要可调对象，而 C ABI 只有 C 符号；因此新增 `crates/scratchmark-jni` 作为**薄适配**，
+只做编组、语义全部来自 `scratchmark-core`，避免与 C ABI 形成两套行为。附带 `bindings/kotlin` 的 Kotlin 封装与 AAR 骨架。
+运行时验证需要设备或模拟器，本机没有，故按 `docs/PLATFORMS.md` 记为“可编译、符号可核对，未运行验证”。

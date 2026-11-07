@@ -1,0 +1,12 @@
+[package]
+name = "scratchmark-jni"
+version = "0.18.0"
+edition.workspace = true
+description = "Scratchmark 的 JNI 封装：把 C ABI 暴露给 Android 的 Kotlin 宿主"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+jni = "0.21"
+scratchmark-core = { path = "../scratchmark-core" }

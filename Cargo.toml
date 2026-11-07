@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/scratchmark-core", "crates/scratchmark-ffi"]
+members = ["crates/scratchmark-core", "crates/scratchmark-ffi", "crates/scratchmark-jni"]
 resolver = "3"
 
 [workspace.package]

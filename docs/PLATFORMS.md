@@ -12,7 +12,7 @@ SDK 版本见 `Cargo.toml`；能力位见 `sm_features()`（当前用到 bit 0�
 | --- | --- | --- | --- | --- |
 | Windows x64 | `scratchmark.dll` / `.lib` | 本机 gnu 工具链 | ✅ C 662 + C# 547 项 | 已交付 |
 | WebAssembly | `scratchmark.wasm` | 本机（wasm32-unknown-unknown） | ✅ Node 里 53 项 | 已交付 |
-| Android | `jniLibs/{arm64-v8a,armeabi-v7a,x86_64}/libscratchmark.so` | 本机 + NDK 30 | ❌ 无设备/模拟器 | 产物已生成，仅编译与符号核对 |
+| Android | `jniLibs/<abi>/{libscratchmark,libscratchmark_jni}.so` + Kotlin 封装 + AAR 骨架 | 本机 + NDK 30 | ❌ 无设备/模拟器 | 产物与封装已生成，仅编译与符号核对 |
 | Linux x86_64 | `libscratchmark.a`（静态，musl） | 本机 | ❌ 无 Linux 运行时 | 仅编译与符号核对 |
 | iOS | 源码与脚本 | ❌ 需要 macOS + Xcode | ❌ | 尚未开始 |
 | .NET (NuGet) | `Scratchmark.0.18.0.nupkg`（含 `runtimes/win-x64/native/scratchmark.dll`） | 本机 | ✅ 消费方装包后 11 项 | 已交付 |
@@ -34,15 +34,17 @@ node tools/wasm-smoke.mjs target/wasm32-unknown-unknown/release/scratchmark.wasm
 ## Android
 
 ```powershell
-pwsh tools/build-android.ps1            # 默认 API 24，产物在 dist/android
+pwsh tools/build-android.ps1            # 三个 ABI 的 C 层 + JNI 层 .so → dist/android/jniLibs
 ```
 
-- 三个 ABI 都编出 `.so`，导出 **52 个 `sm_*`** 符号，`llvm-nm` 逐个核对过；`llvm-strip --strip-unneeded` 后 **0.32–0.49 MB/ABI**。
-- 验证边界：**只证明"能编、符号对、依赖能解析"**。本机没有 Android 设备也没有模拟器，运行时行为未验证。
-- 下一步（未做）：Kotlin 封装 + AAR（`jniLibs` 目录已按 Gradle 约定生成）、`System.loadLibrary("scratchmark")` 示例、
-  真机/模拟器跑同一套冒烟（这需要你提供设备或允许装模拟器）。
-- 已知限制：`armv7` 是 32 位，指针 4 字节；引擎内部的容量上限与 64 位一致，但快照最大 64 MiB 的分配在低内存设备上要留意。
-
+- 每个 ABI 出两个库：`libscratchmark.so`（C ABI，**52 个 `sm_*` 导出**）与 `libscratchmark_jni.so`
+  （JNI 层，**24 个 `Java_com_scratchmark_Native_*` 导出**），都用 `llvm-nm` 逐个核对过；
+  `llvm-strip --strip-unneeded` 后两库合计约 **0.67–1.0 MB/ABI**。
+- Kotlin 封装在 `bindings/kotlin`（`Engine` / `Sample` / `BrushPoint` / `SampleFlags` / `BrushKind`），
+  AAR 骨架已按 Gradle 约定放好 `jniLibs`、`build.gradle.kts`、`AndroidManifest.xml`、`consumer-rules.pro`。
+- 验证边界：**只证明"能编、符号对"**。本机没有 Android 设备也没有模拟器在跑，运行时行为未验证；
+  本机也没有 gradle/kotlinc，AAR 需要在你那边 `assembleRelease`。
+- 已知限制：`Engine` 非线程安全（同实例别并发）；未发布 Maven；`armv7` 是 32 位目标。
 ## Linux
 
 ```powershell
