@@ -173,6 +173,13 @@ SmStatus SM_CALL sm_viewport_ex_fit(const SmBounds *page_bounds,
     double view_width, double view_height, double angle, double padding,
     SmViewportEx *out_viewport);
 
+/* M12 文档边界与整份平移；页面尺寸归属参 spec/M12.md。 */
+#define SM_FEATURE_PAGE_EXTENT UINT64_C(1024)
+SmStatus SM_CALL sm_document_bounds(SmHandle handle, uint64_t revision,
+    SmBounds *out_bounds, uint32_t *out_strokes, uint32_t *out_found);
+SmStatus SM_CALL sm_translate_all(SmHandle handle, uint64_t revision,
+    double dx, double dy);
+
 /* M11 逐点轴向（倾斜 / 朝向）；值域、传播与格式 3 参 spec/M11.md。 */
 #define SM_FEATURE_STYLUS_AXES UINT64_C(512)
 typedef struct SmSampleAxes {

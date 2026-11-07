@@ -132,6 +132,8 @@ mod brush_tests;
 #[cfg(test)]
 mod erase_path_tests;
 #[cfg(test)]
+mod extent_tests;
+#[cfg(test)]
 mod hit_tests;
 #[cfg(test)]
 mod predict_tests;
@@ -701,4 +703,45 @@ pub unsafe extern "C" fn sm_read_axes(
         }
         Ok(())
     })
+}
+
+/// # Safety
+/// 三个输出指针都必须有效且对齐；语义参 spec/M12.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_document_bounds(
+    handle: u64,
+    revision: u64,
+    out_bounds: *mut Bounds,
+    out_strokes: *mut u32,
+    out_found: *mut u32,
+) -> u32 {
+    guard(|| {
+        required(out_bounds)?;
+        required(out_strokes)?;
+        required(out_found)?;
+        let (bounds, strokes) = with_doc(handle, |d| {
+            if revision != d.state().revision {
+                return Err(Error::StaleRevision);
+            }
+            let count = d.state().stroke_count;
+            Ok((d.document_bounds(), count))
+        })?;
+        let (value, found) = match bounds {
+            Some(bounds) => (bounds, 1u32),
+            None => (Bounds::default(), 0u32),
+        };
+        unsafe {
+            out_bounds.write(value);
+            out_strokes.write(strokes);
+            out_found.write(found);
+        }
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 句柄必须有效；语义参 spec/M12.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_translate_all(handle: u64, revision: u64, dx: f64, dy: f64) -> u32 {
+    guard(|| with_doc(handle, |d| d.translate_all(revision, dx, dy)))
 }
