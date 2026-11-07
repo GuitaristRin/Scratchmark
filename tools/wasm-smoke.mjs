@@ -57,6 +57,24 @@ function writeSamples(points) {
   });
 }
 
+// 0. 导出清单核对：C ABI 的符号必须都在 wasm 里
+const moduleExports = new Set(
+  WebAssembly.Module.exports(new WebAssembly.Module(bytes)).map((entry) => entry.name),
+);
+const requiredExports = [
+  "sm_abi_version", "sm_features", "sm_create", "sm_destroy", "sm_begin", "sm_append",
+  "sm_finish", "sm_cancel", "sm_undo", "sm_redo", "sm_save", "sm_load", "sm_get_state",
+  "sm_read_points", "sm_read_brush_points", "sm_hit_test", "sm_erase_stroke", "sm_erase_path",
+  "sm_copy_strokes", "sm_paste", "sm_cut_strokes", "sm_document_bounds", "sm_translate_all",
+  "sm_brush_preset", "sm_resample_stroke", "sm_predict_ex", "sm_alloc", "sm_free", "memory",
+];
+const missingExports = requiredExports.filter((name) => !moduleExports.has(name));
+if (missingExports.length > 0) {
+  console.error(`missing wasm exports: ${missingExports.join(", ")}`);
+  process.exit(1);
+}
+checks++;
+
 // 1. 版本与能力位
 require_(api.sm_abi_version() === 1, "abi version is 1");
 const features = api.sm_features();

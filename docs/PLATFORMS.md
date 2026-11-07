@@ -79,6 +79,26 @@ pwsh tools/pack-nuget.ps1     # 先构建 SDK，再打包，再用临时工程�
   需要手工保持一致（`pack-nuget.ps1` 会核对它产出的 SDK zip 版本）。
 - 踩过的坑（已写进脚本）：同名同版本的包会被 NuGet 全局缓存复用，验证前必须清 `~/.nuget/packages/scratchmark/<ver>`，否则验的是上一版。
 
+## 一次重跑全部四层
+
+```powershell
+pwsh tools/build-wasm.ps1      # 2.5 MB wasm + Node 54 项
+pwsh tools/build-android.ps1   # 3 ABI × (52 个 C 导出 + 24 个 JNI 导出)
+pwsh tools/build-linux.ps1     # glibc 2.17 的 .so，52 个导出 + 依赖核对
+pwsh tools/pack-nuget.ps1      # nupkg + 消费方 11 项
+```
+
+最近一次重跑（2026-11-08）：四层全部 exit 0，产物见下表。
+
+| 产物 | 大小 |
+| --- | --- |
+| `dist/wasm/scratchmark.wasm` | 2,521,256 |
+| `dist/android/jniLibs/arm64-v8a/libscratchmark.so` + `_jni.so` | 467,008 + 451,856 |
+| `dist/android/jniLibs/armeabi-v7a/libscratchmark.so` + `_jni.so` | 334,864 + 329,380 |
+| `dist/android/jniLibs/x86_64/libscratchmark.so` + `_jni.so` | 509,048 + 495,976 |
+| `dist/linux/libscratchmark.so` | 511,864 |
+| `dist/linux/libscratchmark.a`（musl 静态，备用） | 24,998,854 |
+| `dist/nuget/Scratchmark.0.18.0.nupkg` | 1,122,927 |
 ## 宿主接入要点（跨平台一致）
 
 1. 动态加载库，核对 `sm_abi_version() == 1`，再核对 `sm_features()` 覆盖你需要的位。
