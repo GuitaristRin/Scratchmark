@@ -100,7 +100,7 @@ impl Document {
                     flags: 0,
                 });
             }
-            generated.extend(&samples);
+            generated.extend(&samples, None);
             batch.push(generated);
         }
 

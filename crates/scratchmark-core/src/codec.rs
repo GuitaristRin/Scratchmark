@@ -1,8 +1,12 @@
-use crate::{Document, Error, MAX_POINTS, MAX_SNAPSHOT, MAX_STROKES, Result, Sample, Stroke};
+use crate::{
+    Document, Error, MAX_POINTS, MAX_SNAPSHOT, MAX_STROKES, Result, Sample, SampleAxes, Stroke,
+};
 
 const MAGIC: &[u8; 8] = b"SCRATCH\0";
 // 格式 2 用独立魔数而非版本递增：旧魔数仅接受版本 1，未知版本仍被既有断言拒绝。
 const MAGIC_V2: &[u8; 8] = b"SCRATCH2";
+// 格式 3 在格式 2 之上给每个样本追加倾斜与朝向（各 4 字节），用于携带轴向通道。
+const MAGIC_V3: &[u8; 8] = b"SCRATCH3";
 
 fn write_header(bytes: &mut Vec<u8>, magic: &[u8; 8], version: u32, strokes: usize) {
     bytes.extend_from_slice(magic);
@@ -10,25 +14,45 @@ fn write_header(bytes: &mut Vec<u8>, magic: &[u8; 8], version: u32, strokes: usi
     bytes.extend_from_slice(&(strokes as u32).to_le_bytes());
 }
 
-pub(crate) fn write_stroke(bytes: &mut Vec<u8>, stroke: &Stroke) {
+/// 写入一笔；`with_axes` 为真时每个样本后追加 tilt / orientation。
+pub(crate) fn write_stroke(bytes: &mut Vec<u8>, stroke: &Stroke, with_axes: bool) {
     bytes.extend_from_slice(&stroke.width.to_le_bytes());
     bytes.extend_from_slice(&stroke.color.to_le_bytes());
     bytes.extend_from_slice(&(stroke.points.len() as u32).to_le_bytes());
-    for p in &stroke.points {
+    for (index, p) in stroke.points.iter().enumerate() {
         bytes.extend_from_slice(&p.x.to_le_bytes());
         bytes.extend_from_slice(&p.y.to_le_bytes());
         bytes.extend_from_slice(&p.time_us.to_le_bytes());
         bytes.extend_from_slice(&p.pressure.to_le_bytes());
         bytes.extend_from_slice(&p.flags.to_le_bytes());
+        if with_axes {
+            let axes = stroke
+                .axes
+                .get(index)
+                .copied()
+                .unwrap_or_else(SampleAxes::default);
+            bytes.extend_from_slice(&axes.tilt.to_le_bytes());
+            bytes.extend_from_slice(&axes.orientation.to_le_bytes());
+        }
     }
 }
 
-/// 选区复制用的编码：始终是格式 1（无页面标识），宿主可把它当剪贴板字节跨页使用。
-pub(crate) fn encode_format1(strokes: &[&Stroke]) -> Vec<u8> {
+fn has_axes(stroke: &Stroke) -> bool {
+    stroke.axes.iter().any(|axes| !axes.is_default())
+}
+
+/// 选区复制用的编码：页面标识恒为 0；笔划带轴向时用格式 3，否则仍是格式 1。
+pub(crate) fn encode_copy(strokes: &[&Stroke]) -> Vec<u8> {
+    let with_axes = strokes.iter().any(|stroke| has_axes(stroke));
     let mut bytes = Vec::new();
-    write_header(&mut bytes, MAGIC, 1, strokes.len());
+    if with_axes {
+        write_header(&mut bytes, MAGIC_V3, 3, strokes.len());
+        bytes.extend_from_slice(&0u64.to_le_bytes());
+    } else {
+        write_header(&mut bytes, MAGIC, 1, strokes.len());
+    }
     for stroke in strokes {
-        write_stroke(&mut bytes, stroke);
+        write_stroke(&mut bytes, stroke, with_axes);
     }
     bytes
 }
@@ -36,15 +60,20 @@ pub(crate) fn encode_format1(strokes: &[&Stroke]) -> Vec<u8> {
 impl Document {
     pub fn save(&self) -> Result<Vec<u8>> {
         self.ensure_idle()?;
+        // 只有真正带轴向的文档才升到格式 3，避免无谓地让旧宿主读不了新文件。
+        let with_axes = self.strokes.iter().any(has_axes);
         let mut bytes = Vec::new();
-        if self.page_id == 0 {
-            write_header(&mut bytes, MAGIC, 1, self.strokes.len());
-        } else {
+        if with_axes {
+            write_header(&mut bytes, MAGIC_V3, 3, self.strokes.len());
+            bytes.extend_from_slice(&self.page_id.to_le_bytes());
+        } else if self.page_id != 0 {
             write_header(&mut bytes, MAGIC_V2, 2, self.strokes.len());
             bytes.extend_from_slice(&self.page_id.to_le_bytes());
+        } else {
+            write_header(&mut bytes, MAGIC, 1, self.strokes.len());
         }
         for stroke in &self.strokes {
-            write_stroke(&mut bytes, stroke);
+            write_stroke(&mut bytes, stroke, with_axes);
         }
         Ok(bytes)
     }
@@ -67,13 +96,16 @@ impl Reader<'_> {
     fn f64(&mut self) -> Result<f64> {
         Ok(f64::from_le_bytes(self.take()?))
     }
+    fn f32(&mut self) -> Result<f32> {
+        Ok(f32::from_le_bytes(self.take()?))
+    }
 }
 
 pub(crate) struct Decoded {
     pub strokes: Vec<Stroke>,
     pub total: usize,
     pub page_id: u64,
-    /// 1 或 2；粘贴需要区分“文档恢复”与“剪贴板粘贴”。
+    /// 1 / 2 / 3；粘贴需要区分“文档恢复”与“剪贴板粘贴”。
     pub format: u32,
 }
 
@@ -83,28 +115,24 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Decoded> {
     }
     let mut r = Reader(bytes);
     let magic = r.take::<8>()?;
-    let mut page_id = 0u64;
-    let format;
-    if magic == *MAGIC {
-        if r.u32()? != 1 {
-            return Err(Error::UnsupportedVersion);
-        }
-        format = 1;
+    let format = if magic == *MAGIC {
+        1
     } else if magic == *MAGIC_V2 {
-        if r.u32()? != 2 {
-            return Err(Error::UnsupportedVersion);
-        }
-        format = 2;
+        2
+    } else if magic == *MAGIC_V3 {
+        3
     } else {
         return Err(Error::InvalidData);
+    };
+    if r.u32()? != format {
+        return Err(Error::UnsupportedVersion);
     }
     let count = r.u32()? as usize;
     if count > MAX_STROKES {
         return Err(Error::LimitExceeded);
     }
-    if format == 2 {
-        page_id = r.u64()?;
-    }
+    let page_id = if format >= 2 { r.u64()? } else { 0 };
+    let stride = if format >= 3 { 40 } else { 32 };
     let mut strokes = Vec::new();
     let mut total = 0;
     for _ in 0..count {
@@ -117,10 +145,12 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Decoded> {
         if n > MAX_POINTS - total {
             return Err(Error::LimitExceeded);
         }
-        if n > r.0.len() / 32 {
+        if n > r.0.len() / stride {
             return Err(Error::InvalidData);
         }
         let mut s = Stroke::new(width, color).map_err(|_| Error::InvalidData)?;
+        let mut samples = Vec::with_capacity(n);
+        let mut axes = Vec::with_capacity(n);
         let mut last = 0;
         for _ in 0..n {
             let p = Sample {
@@ -134,7 +164,22 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Decoded> {
                 return Err(Error::InvalidData);
             }
             last = p.time_us;
-            s.extend(&[p]);
+            samples.push(p);
+            if format >= 3 {
+                let value = SampleAxes {
+                    tilt: r.f32()?,
+                    orientation: r.f32()?,
+                };
+                if !value.is_valid() {
+                    return Err(Error::InvalidData);
+                }
+                axes.push(value);
+            }
+        }
+        if format >= 3 {
+            s.extend(&samples, Some(&axes));
+        } else {
+            s.extend(&samples, None);
         }
         total += n;
         strokes.push(s);

@@ -63,6 +63,27 @@ impl Sample {
     }
 }
 
+/// 每点的轴向：倾斜（弧度，0 表示与屏幕垂直或未提供）与朝向（弧度，−π..π）。
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[repr(C)]
+pub struct SampleAxes {
+    pub tilt: f32,
+    pub orientation: f32,
+}
+
+impl SampleAxes {
+    pub fn is_valid(&self) -> bool {
+        self.tilt.is_finite()
+            && self.orientation.is_finite()
+            && (0.0..=std::f32::consts::FRAC_PI_2).contains(&self.tilt)
+            && (-std::f32::consts::PI..=std::f32::consts::PI).contains(&self.orientation)
+    }
+
+    pub fn is_default(&self) -> bool {
+        self.tilt == 0.0 && self.orientation == 0.0
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[repr(C)]
 pub struct State {
@@ -94,6 +115,8 @@ pub(crate) struct Stroke {
     pub width: f64,
     pub color: u32,
     pub points: Vec<Sample>,
+    /// 与 `points` 等长的轴向通道；未提供时为默认值（倾斜与朝向均为 0）。
+    pub axes: Vec<SampleAxes>,
     pub bounds: Option<[f64; 4]>,
     pub brush_cache: Option<brush::BrushCache>,
 }
@@ -107,12 +130,14 @@ impl Stroke {
             width,
             color,
             points: Vec::new(),
+            axes: Vec::new(),
             bounds: None,
             brush_cache: None,
         })
     }
 
-    pub fn extend(&mut self, samples: &[Sample]) {
+    /// 追加样本；`axes` 为 `None` 时按默认轴向补齐，保证两条通道等长。
+    pub fn extend(&mut self, samples: &[Sample], axes: Option<&[SampleAxes]>) {
         if let Some(cache) = &mut self.brush_cache {
             cache.extend(samples, self.width);
         }
@@ -127,6 +152,12 @@ impl Stroke {
             b[3] = b[3].max(p.y + r);
         }
         self.points.extend_from_slice(samples);
+        match axes {
+            Some(values) => self.axes.extend_from_slice(values),
+            None => self
+                .axes
+                .resize(self.axes.len() + samples.len(), SampleAxes::default()),
+        }
     }
 
     pub fn brush_points(&mut self, options: BrushOptions) -> &[BrushPoint] {

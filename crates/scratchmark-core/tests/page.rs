@@ -187,8 +187,12 @@ fn format_two_rejects_malformed_headers_and_strokes_like_format_one() {
     wrong_magic[8] = 1;
     cases.push((wrong_magic, Error::LimitExceeded));
     let mut unknown_magic = valid.clone();
-    unknown_magic[..8].copy_from_slice(b"SCRATCH3");
+    unknown_magic[..8].copy_from_slice(b"SCRATCH9");
     cases.push((unknown_magic, Error::InvalidData));
+    // M11 起 SCRATCH3 是合法格式 3 的魔数：这里声明的版本仍是 2，因此是版本不符而不是未知魔数。
+    let mut wrong_axes_version = valid.clone();
+    wrong_axes_version[..8].copy_from_slice(b"SCRATCH3");
+    cases.push((wrong_axes_version, Error::UnsupportedVersion));
     let mut bad_stroke = valid.clone();
     bad_stroke[24..32].copy_from_slice(&f64::NAN.to_le_bytes());
     cases.push((bad_stroke, Error::InvalidData));

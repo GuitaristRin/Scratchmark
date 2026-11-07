@@ -98,7 +98,8 @@ fn map_stroke(stroke: &Stroke, transform: &Transform) -> Result<Stroke> {
             flags: point.flags,
         });
     }
-    mapped.extend(&samples);
+    // 轴向不随几何变换改变（倾斜/朝向是输入设备姿态，不是页面几何）。
+    mapped.extend(&samples, Some(&stroke.axes));
     Ok(mapped)
 }
 
@@ -158,7 +159,7 @@ impl Document {
         }
         let sorted = self.sorted_indices(indices)?;
         let selected: Vec<&Stroke> = sorted.iter().map(|&index| &self.strokes[index]).collect();
-        Ok(codec::encode_format1(&selected))
+        Ok(codec::encode_copy(&selected))
     }
 
     /// 粘贴格式 1 快照字节：追加到最上层，一次调用一个撤销条目。
@@ -176,8 +177,9 @@ impl Document {
         transform.validate()?;
 
         let decoded = codec::decode(data)?;
-        // 粘贴不是“恢复文档”：只接受复制产出的格式 1，避免把整份带页面标识的文档塞进当前页。
-        if decoded.format != 1 {
+        // 粘贴不是“恢复文档”：只接受复制产出的格式 1，或页面标识为 0 的格式 3（带轴向的剪贴板）。
+        let pasteable = decoded.format == 1 || (decoded.format == 3 && decoded.page_id == 0);
+        if !pasteable {
             return Err(Error::InvalidData);
         }
         if decoded.strokes.is_empty() {

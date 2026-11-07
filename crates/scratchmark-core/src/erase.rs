@@ -3,7 +3,9 @@
 //! 删除集合是“到擦除折线距离不超过半径”的闭区域，判定只用原始中心线（与 M4 命中一致）。
 //! 切点是逐段二次方程的闭式解，不采样、不迭代，保证同一输入得到同一输出。
 use crate::document::{Edit, ReplaceOp};
-use crate::{Document, Error, MAX_COORD, MAX_POINTS, MAX_STROKES, Point, Result, Sample, Stroke};
+use crate::{
+    Document, Error, MAX_COORD, MAX_POINTS, MAX_STROKES, Point, Result, Sample, SampleAxes, Stroke,
+};
 
 /// 参数空间（段内 t）的忽略阈值：它以下的覆盖视为相切而非切分，
 /// 避免生成零长度片段与重复顶点；页面尺度上不可见。
@@ -183,8 +185,9 @@ fn cut_stroke(
         return Ok(None);
     }
 
-    let mut fragments: Vec<Vec<Sample>> = Vec::new();
-    let mut current: Vec<Sample> = Vec::new();
+    let axes = &stroke.axes;
+    let mut fragments: Vec<Vec<(Sample, SampleAxes)>> = Vec::new();
+    let mut current: Vec<(Sample, SampleAxes)> = Vec::new();
     for (i, intervals) in covered.iter().enumerate() {
         let a = &points[i];
         let b = &points[i + 1];
@@ -209,18 +212,18 @@ fn cut_stroke(
             }
             if lo > 0.0 {
                 flush(&mut fragments, &mut current);
-                current.push(lerp_sample(a, b, lo));
+                current.push(lerp_pair(a, axes[i], b, axes[i + 1], lo));
             } else if current.is_empty() {
-                current.push(*a);
+                current.push((*a, axes[i]));
             }
             if hi < 1.0 {
-                current.push(lerp_sample(a, b, hi));
+                current.push(lerp_pair(a, axes[i], b, axes[i + 1], hi));
                 flush(&mut fragments, &mut current);
             } else {
                 open_at_end = true;
                 if i + 1 == points.len() - 1 {
                     // 末段的终点没有下一段来补，必须在这里补上原始末点。
-                    current.push(*b);
+                    current.push((*b, axes[i + 1]));
                     flush(&mut fragments, &mut current);
                 }
             }
@@ -233,20 +236,39 @@ fn cut_stroke(
     flush(&mut fragments, &mut current);
 
     let mut built = Vec::with_capacity(fragments.len());
-    for samples in fragments {
+    for pairs in fragments {
         let mut fragment = Stroke::new(stroke.width, stroke.color).map_err(|_| Error::Internal)?;
-        fragment.extend(&samples);
+        let samples: Vec<Sample> = pairs.iter().map(|(sample, _)| *sample).collect();
+        let fragment_axes: Vec<SampleAxes> = pairs.iter().map(|(_, axis)| *axis).collect();
+        fragment.extend(&samples, Some(&fragment_axes));
         built.push(fragment);
     }
     Ok(Some(built))
 }
 
-fn flush(fragments: &mut Vec<Vec<Sample>>, current: &mut Vec<Sample>) {
+fn flush(fragments: &mut Vec<Vec<(Sample, SampleAxes)>>, current: &mut Vec<(Sample, SampleAxes)>) {
     if current.len() >= 2 {
         fragments.push(std::mem::take(current));
     } else {
         current.clear();
     }
+}
+
+/// 切点样本与轴向一起插值：轴向按两侧样本线性插值（角度不做环绕处理，仍在值域内）。
+fn lerp_pair(
+    a: &Sample,
+    a_axes: SampleAxes,
+    b: &Sample,
+    b_axes: SampleAxes,
+    t: f64,
+) -> (Sample, SampleAxes) {
+    let sample = lerp_sample(a, b, t);
+    let blend = t as f32;
+    let axes = SampleAxes {
+        tilt: a_axes.tilt + (b_axes.tilt - a_axes.tilt) * blend,
+        orientation: a_axes.orientation + (b_axes.orientation - a_axes.orientation) * blend,
+    };
+    (sample, axes)
 }
 
 fn disjoint(stroke: [f64; 4], path: [f64; 4], radius: f64) -> bool {

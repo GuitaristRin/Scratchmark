@@ -1,6 +1,6 @@
 use crate::{
-    BrushOptions, BrushPoint, Error, MAX_BATCH, MAX_POINTS, MAX_STROKES, Result, Sample, State,
-    Stroke, StrokeInfo,
+    BrushOptions, BrushPoint, Error, MAX_BATCH, MAX_POINTS, MAX_STROKES, Result, Sample,
+    SampleAxes, State, Stroke, StrokeInfo,
 };
 
 /// 一次“按下标替换”：`index` 是**施加时刻**的索引，`before` / `after` 恰好一份存活。
@@ -128,13 +128,26 @@ impl Document {
     }
 
     pub fn append(&mut self, samples: &[Sample]) -> Result<()> {
+        self.append_with_axes(samples, None)
+    }
+
+    /// 追加样本并可附带逐点轴向（倾斜 / 朝向）；`axes` 为 `None` 时轴向保持默认值。
+    pub fn append_with_axes(
+        &mut self,
+        samples: &[Sample],
+        axes: Option<&[SampleAxes]>,
+    ) -> Result<()> {
+        if axes.is_some_and(|values| values.len() != samples.len()) {
+            return Err(Error::InvalidArgument);
+        }
         let active = self.active.as_ref().ok_or(Error::InvalidState)?;
         if samples.len() > MAX_BATCH || self.retained_points + samples.len() > MAX_POINTS {
             return Err(Error::LimitExceeded);
         }
         let mut last = active.points.last().map(|p| p.time_us);
-        for p in samples {
-            if !p.is_valid() || last.is_some_and(|t| p.time_us < t) {
+        for (index, p) in samples.iter().enumerate() {
+            let axes_valid = axes.is_none_or(|values| values[index].is_valid());
+            if !p.is_valid() || !axes_valid || last.is_some_and(|t| p.time_us < t) {
                 return Err(Error::InvalidArgument);
             }
             last = Some(p.time_us);
@@ -146,7 +159,7 @@ impl Document {
             d.active
                 .as_mut()
                 .ok_or(Error::InvalidState)?
-                .extend(samples);
+                .extend(samples, axes);
             d.retained_points += samples.len();
             Ok(())
         })
@@ -391,6 +404,21 @@ impl Document {
             .ok_or(Error::InvalidArgument)?;
         let n = points.len().min(output.len());
         output[..n].copy_from_slice(&points[..n]);
+        Ok(n)
+    }
+
+    /// 读取逐点轴向；与 `read_points` 的分段语义一致。
+    pub fn read_axes(
+        &self,
+        revision: u64,
+        index: u32,
+        start: u32,
+        output: &mut [SampleAxes],
+    ) -> Result<usize> {
+        let (s, _) = self.stroke(revision, index)?;
+        let axes = s.axes.get(start as usize..).ok_or(Error::InvalidArgument)?;
+        let n = axes.len().min(output.len());
+        output[..n].copy_from_slice(&axes[..n]);
         Ok(n)
     }
 
