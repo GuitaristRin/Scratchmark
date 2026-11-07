@@ -50,6 +50,7 @@ internal static unsafe partial class Program
         Selection(args[0]);
         TransformSelection(args[0]);
         Shape(args[0]);
+        ViewportRotation(args[0]);
         Console.WriteLine($"C# smoke: {checks} checks passed");
         return 0;
     }

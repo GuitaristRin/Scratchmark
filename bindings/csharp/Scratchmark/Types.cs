@@ -139,3 +139,63 @@ public struct ShapeInfo
     public uint Kind, StrokeCount, PointCount, Reserved;
     public double Error;
 }
+/* M9 带旋转的视口：先缩放、再旋转、最后平移；旧 Viewport 等价于 Angle = 0。 */
+[StructLayout(LayoutKind.Sequential)]
+public struct ViewportEx
+{
+    public double Scale, Angle, OffsetX, OffsetY;
+    public uint Reserved;
+
+    public static ViewportEx Identity => new() { Scale = 1.0 };
+
+    public readonly Point PageToViewport(Point page)
+    {
+        Status status = Native.PageToViewportEx(this, page, out Point output);
+        if (status != Status.Ok) throw new ScratchmarkException(status);
+        return output;
+    }
+
+    public readonly Point ViewportToPage(Point viewport)
+    {
+        Status status = Native.ViewportToPageEx(this, viewport, out Point output);
+        if (status != Status.Ok) throw new ScratchmarkException(status);
+        return output;
+    }
+
+    public readonly double WidthPageToViewport(double width)
+    {
+        Status status = Native.WidthPageToViewportEx(this, width, out double output);
+        if (status != Status.Ok) throw new ScratchmarkException(status);
+        return output;
+    }
+
+    public readonly double WidthViewportToPage(double width)
+    {
+        Status status = Native.WidthViewportToPageEx(this, width, out double output);
+        if (status != Status.Ok) throw new ScratchmarkException(status);
+        return output;
+    }
+
+    public readonly Bounds BoundsPageToViewport(Bounds page)
+    {
+        Status status = Native.BoundsPageToViewportEx(this, page, out Bounds output);
+        if (status != Status.Ok) throw new ScratchmarkException(status);
+        return output;
+    }
+
+    /// <summary>以视口点为锚缩放：锚点下的页面点保持不变。</summary>
+    public readonly ViewportEx ZoomAt(Point anchor, double factor)
+    {
+        Status status = Native.ViewportExZoomAt(this, anchor, factor, out ViewportEx output);
+        if (status != Status.Ok) throw new ScratchmarkException(status);
+        return output;
+    }
+
+    /// <summary>把页面边界适配进视口矩形，带旋转与内边距。</summary>
+    public static ViewportEx Fit(Bounds page, double viewWidth, double viewHeight, double angle, double padding)
+    {
+        Status status = Native.ViewportExFit(page, viewWidth, viewHeight, angle, padding, out ViewportEx output);
+        if (status != Status.Ok) throw new ScratchmarkException(status);
+        return output;
+    }
+}

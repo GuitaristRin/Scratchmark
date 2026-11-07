@@ -35,8 +35,8 @@ internal static unsafe class Native
             }
             // 库保持到进程结束，避免 finalizer 或在途调用访问已卸载代码。
             if (AbiVersion() != 1) throw new NotSupportedException("Expected Scratchmark ABI 1.");
-            if (!NativeLibrary.TryGetExport(library, "sm_features", out _) || (Features() & 127) != 127)
-                throw new NotSupportedException("SDK does not support M2 brush, M3 page/viewport, M4 hit/erase, M5 partial erase, M6 selection, M7 transform or M8 shape.");
+            if (!NativeLibrary.TryGetExport(library, "sm_features", out _) || (Features() & 255) != 255)
+                throw new NotSupportedException("SDK does not support M2 brush, M3 page/viewport, M4 hit/erase, M5 partial erase, M6 selection, M7 transform, M8 shape or M9 viewport rotation.");
         }
     }
 
@@ -113,4 +113,18 @@ internal static unsafe class Native
     internal static extern Status WidthViewportToPage(in Viewport viewport, double width, out double output);
     [DllImport(Library, EntryPoint = "sm_bounds_page_to_viewport", CallingConvention = CallingConvention.Cdecl)]
     internal static extern Status BoundsPageToViewport(in Viewport viewport, in Bounds input, out Bounds output);
+    [DllImport(Library, EntryPoint = "sm_page_to_viewport_ex", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status PageToViewportEx(in ViewportEx viewport, in Point input, out Point output);
+    [DllImport(Library, EntryPoint = "sm_viewport_to_page_ex", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status ViewportToPageEx(in ViewportEx viewport, in Point input, out Point output);
+    [DllImport(Library, EntryPoint = "sm_width_page_to_viewport_ex", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status WidthPageToViewportEx(in ViewportEx viewport, double width, out double output);
+    [DllImport(Library, EntryPoint = "sm_width_viewport_to_page_ex", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status WidthViewportToPageEx(in ViewportEx viewport, double width, out double output);
+    [DllImport(Library, EntryPoint = "sm_bounds_page_to_viewport_ex", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status BoundsPageToViewportEx(in ViewportEx viewport, in Bounds input, out Bounds output);
+    [DllImport(Library, EntryPoint = "sm_viewport_ex_zoom_at", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status ViewportExZoomAt(in ViewportEx viewport, in Point anchor, double factor, out ViewportEx output);
+    [DllImport(Library, EntryPoint = "sm_viewport_ex_fit", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status ViewportExFit(in Bounds page, double viewWidth, double viewHeight, double angle, double padding, out ViewportEx output);
 }
