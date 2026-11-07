@@ -173,6 +173,17 @@ SmStatus SM_CALL sm_viewport_ex_fit(const SmBounds *page_bounds,
     double view_width, double view_height, double angle, double padding,
     SmViewportEx *out_viewport);
 
+/* M14 按笔宽的点间距重采样；只读派生，参 spec/M14.md。 */
+#define SM_FEATURE_RESAMPLE UINT64_C(4096)
+typedef struct SmResampleOptions {
+    double spacing_ratio; /* 间距 = 笔宽 × 该比例，必须有限且 > 0 */
+    SmBrushOptions brush; /* 决定输出点的逐点笔宽 */
+    uint32_t reserved;    /* 必须为 0 */
+} SmResampleOptions;
+SmStatus SM_CALL sm_resample_stroke(SmHandle handle, uint64_t revision, uint32_t index,
+    const SmResampleOptions *options,
+    SmBrushPoint *out_points, uint32_t capacity, uint32_t *out_written);
+
 /* M13 笔型尺寸预置；数值是引擎自有的默认分档，参 spec/M13.md。 */
 #define SM_FEATURE_BRUSH_PRESET UINT64_C(2048)
 #define SM_BRUSH_LEVELS 5

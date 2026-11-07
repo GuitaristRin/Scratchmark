@@ -4,10 +4,9 @@ use crate::{
 };
 use scratchmark_core::{
     Bounds, BrushKind, BrushOptions, BrushPoint, Error, MAX_BATCH, MAX_POINTS,
-    MAX_PREDICTION_POINTS, MAX_SNAPSHOT, MAX_STROKES, Point, PredictionOptions, Sample, SampleAxes,
-    ShapeInfo, ShapeKind, State, StrokeInfo, Transform, Viewport, ViewportEx,
+    MAX_PREDICTION_POINTS, MAX_SNAPSHOT, MAX_STROKES, Point, PredictionOptions, ResampleOptions,
+    Sample, SampleAxes, ShapeInfo, ShapeKind, State, StrokeInfo, Transform, Viewport, ViewportEx,
 };
-
 /// # Safety
 /// 输出指针必须满足 spec/M0.md 的可写、对齐与独占约束。
 #[unsafe(no_mangle)]
@@ -139,6 +138,8 @@ mod hit_tests;
 mod predict_tests;
 #[cfg(test)]
 mod preset_tests;
+#[cfg(test)]
+mod resample_tests;
 #[cfg(test)]
 mod select_tests;
 #[cfg(test)]
@@ -777,6 +778,35 @@ pub unsafe extern "C" fn sm_brush_preset_width(
         unsafe {
             out_width.write(width);
         }
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 选项与输出区必须满足 spec/M0.md 的指针与容量约束；语义参 spec/M14.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_resample_stroke(
+    handle: u64,
+    revision: u64,
+    index: u32,
+    options: *const ResampleOptions,
+    out_points: *mut BrushPoint,
+    capacity: u32,
+    out_written: *mut u32,
+) -> u32 {
+    guard(|| {
+        required(options)?;
+        required(out_written)?;
+        let options = unsafe { options.read() };
+        let slots = unsafe { output(out_points, capacity, MAX_POINTS)? };
+        let points = with_doc(handle, |d| d.resample_stroke(revision, index, &options))?;
+        unsafe {
+            out_written.write(points.len() as u32);
+        }
+        if slots.len() < points.len() {
+            return Err(Error::BufferTooSmall);
+        }
+        slots[..points.len()].copy_from_slice(&points);
         Ok(())
     })
 }
