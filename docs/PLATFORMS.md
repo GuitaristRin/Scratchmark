@@ -1,5 +1,8 @@
 # 平台与封装库
 
+> **实验版（0.1.0-pre）**：接口与快照格式不承诺兼容，二进制制品仅在本文说明的范围内验证过。
+> **已验证**与**明确未验证**的项目见 [验证矩阵](VERIFICATION.md)；未验证项不允许表述为"支持"。
+
 本文件写清**每个平台现在能交付什么、验证到哪一步、还差什么**。判据只有一条：能不能在本机真的跑起来。
 不要把它读成"支持矩阵"——没有验证过的一律标出来。
 
@@ -15,7 +18,7 @@ SDK 版本见 `Cargo.toml`；能力位见 `sm_features()`（当前用到 bit 0�
 | Android | `jniLibs/<abi>/{libscratchmark,libscratchmark_jni}.so` + Kotlin 封装 + AAR 骨架 | 本机 + NDK 30 | ❌ 无设备/模拟器 | 产物与封装已生成，仅编译与符号核对 |
 | Linux x86_64 | `libscratchmark.so`（glibc 2.17 基线，512 KB） | 本机 + zig | ❌ 无 Linux 运行时 | 已交付产物，仅编译 / 符号 / 依赖核对 |
 | iOS | 源码与脚本 | ❌ 需要 macOS + Xcode | ❌ | 尚未开始 |
-| .NET (NuGet) | `Scratchmark.0.18.0.nupkg`（含 `runtimes/win-x64/native/scratchmark.dll`） | 本机 | ✅ 消费方装包后 11 项 | 已交付 |
+| .NET (NuGet) | `Scratchmark.0.1.0.nupkg`（含 `runtimes/win-x64/native/scratchmark.dll`） | 本机 | ✅ 消费方装包后 11 项 | 已交付 |
 
 ## WebAssembly
 
@@ -98,7 +101,7 @@ pwsh tools/pack-nuget.ps1      # nupkg + 消费方 11 项
 | `dist/android/jniLibs/x86_64/libscratchmark.so` + `_jni.so` | 509,048 + 495,976 |
 | `dist/linux/libscratchmark.so` | 511,864 |
 | `dist/linux/libscratchmark.a`（musl 静态，备用） | 24,998,854 |
-| `dist/nuget/Scratchmark.0.18.0.nupkg` | 1,122,927 |
+| `dist/nuget/Scratchmark.0.1.0.nupkg` | 1,122,927 |
 ## 宿主接入要点（跨平台一致）
 
 1. 动态加载库，核对 `sm_abi_version() == 1`，再核对 `sm_features()` 覆盖你需要的位。
@@ -106,3 +109,4 @@ pwsh tools/pack-nuget.ps1      # nupkg + 消费方 11 项
 3. 每次编辑后看 `sm_get_state()` 的 `revision`；过期 revision 的写入会得到 `SM_STALE_REVISION`。
 4. 快照是**自描述字节**，不要自己解析；跨平台字节序固定为小端。
 5. 引擎不出位图：渲染、视口、文件事务、剪贴板系统集成都在宿主侧（见 `docs/HOST_INTEGRATION.md`）。
+

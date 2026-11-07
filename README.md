@@ -1,8 +1,10 @@
 # Scratchmark
 
+> **实验版（0.1.0-pre）**：接口与快照格式不承诺兼容。**已验证**与**明确未验证**的项目见 [验证矩阵](docs/VERIFICATION.md)，未验证项不允许表述为"支持"。
+
 可嵌入的手写与页面批注模块。
 
-Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔迹与批注。当前 SDK 0.18.0 提供实验核心、C ABI 1（52 个导出）、.NET 9 C# 适配、Android JNI 与 Kotlin 封装、WebAssembly 与 Linux 产物。**先看 [文档地图](docs/README.md)**；能力与验证边界见 [平台与封装库](docs/PLATFORMS.md) 与 [验证矩阵](docs/VERIFICATION.md)。
+Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔迹与批注。当前 SDK 0.1.0 提供实验核心、C ABI 1（52 个导出）、.NET 9 C# 适配、Android JNI 与 Kotlin 封装、WebAssembly 与 Linux 产物。**先看 [文档地图](docs/README.md)**；能力与验证边界见 [平台与封装库](docs/PLATFORMS.md) 与 [验证矩阵](docs/VERIFICATION.md)。
 
 ## 当前范围
 
@@ -45,7 +47,7 @@ PezMax-One 重构可参考 [宿主接入说明](docs/HOST_INTEGRATION.md)：页�
 
 ## 本地参考资料
 
-完整 主流移动便签分析资料保存在 `本地参考/`，包括外部行为观察代码、APK、原生库、工具与已有分析文档。整个 `Refs/` 已被 Git 忽略，不随仓库推送。
+- 可选参考资料放在 `Refs/`（已被 Git 忽略，不随仓库推送）；本仓库的文档与代码不依赖它。
 
 Git 远端使用 SSH：`git@github.com:GuitaristRin/Scratchmark.git`。
 
@@ -65,3 +67,12 @@ Git 远端使用 SSH：`git@github.com:GuitaristRin/Scratchmark.git`。
 - [当前状态时间线](docs/README.md#四现在到哪了时间线)
 
 按已确认的纯引擎及 Rust 核心 / 原生适配方向继续设计；具体依赖、显示后端、文件格式与对外接口仍待研究后确定。仓库当前计划保持私有，待研发充分后再评估公开。
+## 许可
+
+本项目采用 **MIT 或 Apache-2.0 双许可**，你可任选其一：
+
+- [Apache License 2.0](LICENSE-APACHE)
+- [MIT License](LICENSE-MIT)
+- 第三方组件与归属见 [NOTICE](NOTICE)（当前唯一第三方依赖是 `jni`，同样为 MIT/Apache-2.0）
+
+发布状态与未验证范围见 [docs/VERIFICATION.md](docs/VERIFICATION.md)；发布前遗留事项见 [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)。

@@ -3,9 +3,11 @@ members = ["crates/scratchmark-core", "crates/scratchmark-ffi", "crates/scratchm
 resolver = "3"
 
 [workspace.package]
-version = "0.18.0"
+version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/GuitaristRin/Scratchmark"
 publish = false
 
 [workspace.lints.rust]

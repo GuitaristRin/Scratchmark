@@ -1,6 +1,6 @@
 [package]
 name = "scratchmark-jni"
-version = "0.18.0"
+version.workspace = true
 edition.workspace = true
 description = "Scratchmark 的 JNI 封装：把 C ABI 暴露给 Android 的 Kotlin 宿主"
 

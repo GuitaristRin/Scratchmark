@@ -115,18 +115,18 @@ dependencies = [
 
 [[package]]
 name = "scratchmark-core"
-version = "0.18.0"
+version = "0.1.0"
 
 [[package]]
 name = "scratchmark-ffi"
-version = "0.18.0"
+version = "0.1.0"
 dependencies = [
  "scratchmark-core",
 ]
 
 [[package]]
 name = "scratchmark-jni"
-version = "0.18.0"
+version = "0.1.0"
 dependencies = [
  "jni",
  "scratchmark-core",

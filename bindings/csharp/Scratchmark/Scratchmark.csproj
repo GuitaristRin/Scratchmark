@@ -10,10 +10,12 @@
   <!-- NuGet 打包：原生库按 RID 放进 runtimes/，宿主用无参 Engine() 即可解析。 -->
   <PropertyGroup>
     <PackageId>Scratchmark</PackageId>
-    <Version>0.18.0</Version>
+    <Version>0.1.0</Version>
     <Authors>Scratchmark</Authors>
     <Description>无 UI 的手写笔迹引擎（实验性 C ABI 1）；Windows x64 原生库随包分发。</Description>
     <PackageTags>handwriting;ink;stroke;native</PackageTags>
+    <PackageLicenseExpression>MIT OR Apache-2.0</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/GuitaristRin/Scratchmark</RepositoryUrl>
     <IsPackable>true</IsPackable>
   </PropertyGroup>
 

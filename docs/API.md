@@ -1,9 +1,12 @@
 # C ABI 接口索引
 
+> **实验版（0.1.0-pre）**：接口与快照格式不承诺兼容，二进制制品仅在本文说明的范围内验证过。
+> **已验证**与**明确未验证**的项目见 [验证矩阵](VERIFICATION.md)；未验证项不允许表述为"支持"。
+
 权威定义在 [`include/scratchmark.h`](../include/scratchmark.h)，语义细节在各 `spec/M<n>.md`。本文件只做**分组索引**与共性约定，
 不复制规格正文——避免两处不一致。
 
-ABI 版本 `1`，SDK `0.18.0`，共 **52 个导出**。
+ABI 版本 `1`，SDK `0.1.0`，共 **52 个导出**。
 
 ## 共性约定
 
@@ -129,3 +132,4 @@ ABI 版本 `1`，SDK `0.18.0`，共 **52 个导出**。
 | `SmResampleOptions` | 40 | `spacing_ratio`、`brush`、`reserved` |
 
 各平台封装（C# / Kotlin / JS）按同一布局编组，见 `bindings/` 与 `tools/wasm-smoke.mjs`。
+

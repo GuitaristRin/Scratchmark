@@ -14,6 +14,6 @@
 - 当前阶段与已确认范围以 docs/PROJECT_BRIEF.md 为准。
 - PezMax-One 仅作为后续接入场景；本阶段不修改该仓、不建立 submodule。
 - 已确认方向与实施边界见 `docs/DECISIONS_2026-11-03.md` 及 `docs/IMPLEMENTATION_M0.md`；实验接口以 `spec/M0.md` 和 `include/scratchmark.h` 为准，不将未确认的研究提案写成既定方案。
-- 引用样本结论时，注明版本、代码入口及证据局限；外部行为观察结果存在混淆与还原误差。
+- 引用样本结论时，注明版本、代码入口及证据局限；外部行为观察存在观测误差。
 - Git 远端使用 SSH：`git@github.com:GuitaristRin/Scratchmark.git`。
 - `Refs/` 是被 Git 忽略的本地参考目录，不将其中的样本或工具加入版本控制。

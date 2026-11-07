@@ -1,6 +1,9 @@
 # Scratchmark M0 开发 SDK
 
-这是无 UI 的实验性原生引擎，SDK 0.18.0 / ABI 1，快照格式 1 / 2（页面标识）/ 3（逐点轴向），能力位 bit 0 支持平滑 / 压力派生读取，bit 1 支持页面标识与视口变换，bit 2 支持命中测试与整笔擦除，bit 3 支持沿擦除路径的局部擦除，bit 4 支持套索命中与批量删除，bit 5 支持选区变换与复制粘贴，bit 6 支持形状规整，bit 7 支持带旋转的视口，bit 8 支持预测笔迹，bit 9 支持逐点轴向（倾斜 / 朝向），bit 10 支持文档边界与整份平移，bit 11 支持笔型尺寸预置，bit 12 支持按笔宽的点间距重采样，bit 13 支持带刷新率的预测，bit 14 支持原子剪切，bit 15 支持擦除切点标记，bit 16 支持宿主内存分配。不提供稳定发布兼容承诺；原始行为参 `spec/M0.md`，派生笔刷参 `spec/M2.md`，页面标识与视口参 `spec/M3.md`，命中与整笔擦除参 `spec/M4.md`，局部擦除参 `spec/M5.md`，套索与批量删除参 `spec/M6.md`，选区变换与复制粘贴参 `spec/M7.md`，形状规整参 `spec/M8.md`，视口旋转参 `spec/M9.md`，预测笔迹参 `spec/M10.md`，逐点轴向与格式 3 参 `spec/M11.md`，文档边界与整份平移参 `spec/M12.md`，笔型预置参 `spec/M13.md`，点间距重采样参 `spec/M14.md`，预测刷新率参 `spec/M15.md`，原子剪切参 `spec/M16.md`，切点标记参 `spec/M17.md`，宿主内存分配参 `spec/M18.md`。
+> **实验版（0.1.0-pre）**：接口与快照格式不承诺兼容，二进制制品仅在本文说明的范围内验证过。
+> **已验证**与**明确未验证**的项目见 [验证矩阵](VERIFICATION.md)；未验证项不允许表述为"支持"。
+
+这是无 UI 的实验性原生引擎，SDK 0.1.0 / ABI 1，快照格式 1 / 2（页面标识）/ 3（逐点轴向），能力位 bit 0 支持平滑 / 压力派生读取，bit 1 支持页面标识与视口变换，bit 2 支持命中测试与整笔擦除，bit 3 支持沿擦除路径的局部擦除，bit 4 支持套索命中与批量删除，bit 5 支持选区变换与复制粘贴，bit 6 支持形状规整，bit 7 支持带旋转的视口，bit 8 支持预测笔迹，bit 9 支持逐点轴向（倾斜 / 朝向），bit 10 支持文档边界与整份平移，bit 11 支持笔型尺寸预置，bit 12 支持按笔宽的点间距重采样，bit 13 支持带刷新率的预测，bit 14 支持原子剪切，bit 15 支持擦除切点标记，bit 16 支持宿主内存分配。不提供稳定发布兼容承诺；原始行为参 `spec/M0.md`，派生笔刷参 `spec/M2.md`，页面标识与视口参 `spec/M3.md`，命中与整笔擦除参 `spec/M4.md`，局部擦除参 `spec/M5.md`，套索与批量删除参 `spec/M6.md`，选区变换与复制粘贴参 `spec/M7.md`，形状规整参 `spec/M8.md`，视口旋转参 `spec/M9.md`，预测笔迹参 `spec/M10.md`，逐点轴向与格式 3 参 `spec/M11.md`，文档边界与整份平移参 `spec/M12.md`，笔型预置参 `spec/M13.md`，点间距重采样参 `spec/M14.md`，预测刷新率参 `spec/M15.md`，原子剪切参 `spec/M16.md`，切点标记参 `spec/M17.md`，宿主内存分配参 `spec/M18.md`。
 
 ## 包内容
 
@@ -86,3 +89,4 @@ MSVC、UWP / .NET Native 与 Android JNI / AAR 尚未验收。SO 必须按目标
 `sm_alloc` / `sm_free` 给**不能自己 malloc** 的宿主用（典型是 WebAssembly）：申请 8 字节对齐、上限 64 MiB、失败返回 `NULL`，分配出的内存可直接交给 `sm_save` / `sm_copy_strokes` / `sm_cut_strokes`。原生宿主继续用自己的分配器即可。平台与验证等级见 `docs/PLATFORMS.md`。
 
 托管侧可以从 NuGet 装包后直接 `new Engine()`：无参构造会按 `SCRATCHMARK_DLL` → `runtimes/<rid>/native` → 程序目录解析原生库（见 `docs/PLATFORMS.md`）。
+

@@ -31,7 +31,7 @@ New-Item -ItemType Directory -Force -Path $packDir | Out-Null
     -c $Configuration -o $packDir -p:ScratchmarkNativeDll=$($dll.FullName)
 if ($LASTEXITCODE -ne 0) { throw 'dotnet pack 失败' }
 
-$nupkg = Get-ChildItem $packDir -Filter 'Scratchmark.0.18.0.nupkg' | Select-Object -First 1
+$nupkg = Get-ChildItem $packDir -Filter 'Scratchmark.$version.nupkg' | Select-Object -First 1
 if (-not $nupkg) { throw '没有产出 nupkg' }
 Write-Host ("包: {0} ({1:N0} 字节)" -f $nupkg.Name, $nupkg.Length)
 
@@ -41,12 +41,12 @@ New-Item -ItemType Directory -Force -Path $probe | Out-Null
 Copy-Item (Join-Path $root 'tools/nuget-probe/Program.cs') $probe -Force
 Copy-Item (Join-Path $root 'tools/nuget-probe/Probe.csproj') $probe -Force
 # 同名同版本包会被全局缓存复用，清掉再装，否则验证的是上一次的包。
-$cachePath = Join-Path $env:USERPROFILE ".nuget/packages/scratchmark/0.18.0"
+$cachePath = Join-Path $env:USERPROFILE ".nuget/packages/scratchmark/$version"
 if (Test-Path $cachePath) { Remove-Item $cachePath -Recurse -Force }
 
 Push-Location $probe
 try {
-    & dotnet add package Scratchmark --source $packDir --version 0.18.0 2>&1 | Select-Object -Last 3
+    & dotnet add package Scratchmark --source $packDir --version $version 2>&1 | Select-Object -Last 3
     if ($LASTEXITCODE -ne 0) { throw '安装本地包失败' }
     & dotnet run -c Release
     if ($LASTEXITCODE -ne 0) { throw 'NuGet 消费方冒烟失败' }
