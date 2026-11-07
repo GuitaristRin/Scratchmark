@@ -47,6 +47,7 @@ _Static_assert(sizeof(SmBounds) == 32, "SmBounds ABI");
     X(SmStatus, sm_transform_strokes, (SmHandle, uint64_t, const uint32_t *, uint32_t, const SmTransform *)) \
     X(SmStatus, sm_copy_strokes, (SmHandle, uint64_t, const uint32_t *, uint32_t, uint8_t *, uint32_t, uint32_t *)) \
     X(SmStatus, sm_paste, (SmHandle, uint64_t, const uint8_t *, uint32_t, const SmTransform *)) \
+    X(SmStatus, sm_regularize_stroke, (SmHandle, uint64_t, uint32_t, uint32_t, uint32_t, SmShapeInfo *)) \
     X(SmStatus, sm_page_to_viewport, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_viewport_to_page, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_width_page_to_viewport, (const SmViewport *, double, double *)) \
@@ -490,6 +491,77 @@ static int transform_smoke(void) {
     return 0;
 }
 
+/* 形状规整：预览零副作用、直线 / 矩形 / 圆 / 箭头生成与退化拒绝。 */
+static int shape_smoke(void) {
+    REQUIRE((api.sm_features() & SM_FEATURE_SHAPE) != 0);
+    SmHandle handle = 0;
+    STATUS(api.sm_create(&handle), SM_OK);
+    SmSample straight[3] = {{0.0, 0.0, 0, 0.0f, 0}, {5.0, 0.0, 500, 0.0f, 0}, {10.0, 0.0, 1000, 0.0f, 0}};
+    STATUS(api.sm_begin(handle, 2.0, 0x11223344), SM_OK);
+    STATUS(api.sm_append(handle, straight, 3), SM_OK);
+    STATUS(api.sm_finish(handle), SM_OK);
+    SmState state;
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+
+    /* 预览：只测量，不改文档。 */
+    SmShapeInfo info;
+    memset(&info, 0, sizeof(info));
+    STATUS(api.sm_regularize_stroke(handle, state.revision, 0, SM_SHAPE_LINE, 1, &info), SM_OK);
+    REQUIRE(info.kind == SM_SHAPE_LINE && info.stroke_count == 1 && info.point_count == 2);
+    REQUIRE(info.error < 1e-9);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.stroke_count == 1);
+
+    /* 实际替换：一个撤销条目。 */
+    STATUS(api.sm_regularize_stroke(handle, state.revision, 0, SM_SHAPE_LINE, 0, &info), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    SmStrokeInfo stroke;
+    STATUS(api.sm_get_stroke(handle, state.revision, 0, &stroke), SM_OK);
+    REQUIRE(stroke.point_count == 2 && stroke.width == 2.0 && stroke.color == 0x11223344);
+    STATUS(api.sm_undo(handle), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    STATUS(api.sm_get_stroke(handle, state.revision, 0, &stroke), SM_OK);
+    REQUIRE(stroke.point_count == 3);
+
+    /* 箭头：3 笔 6 点。 */
+    SmSample shaft[2] = {{0.0, 300.0, 0, 0.0f, 0}, {100.0, 300.0, 1000, 0.0f, 0}};
+    STATUS(api.sm_begin(handle, 2.0, 0), SM_OK);
+    STATUS(api.sm_append(handle, shaft, 2), SM_OK);
+    STATUS(api.sm_finish(handle), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    STATUS(api.sm_regularize_stroke(handle, state.revision, 1, SM_SHAPE_ARROW, 0, &info), SM_OK);
+    REQUIRE(info.stroke_count == 3 && info.point_count == 6);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    /* 原直笔划仍在 index 0，箭头展开成 3 笔：共 4 笔。 */
+    REQUIRE(state.stroke_count == 4);
+
+    /* 矩形 5 点闭合，圆 65 点闭合。 */
+    SmSample box[4] = {{0.0, 0.0, 0, 0.0f, 0}, {10.0, 0.0, 1, 0.0f, 0}, {10.0, 10.0, 2, 0.0f, 0}, {0.0, 10.0, 3, 0.0f, 0}};
+    STATUS(api.sm_begin(handle, 2.0, 0), SM_OK);
+    STATUS(api.sm_append(handle, box, 4), SM_OK);
+    STATUS(api.sm_finish(handle), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    uint32_t box_index = state.stroke_count - 1;
+    STATUS(api.sm_regularize_stroke(handle, state.revision, box_index, SM_SHAPE_RECTANGLE, 0, &info), SM_OK);
+    REQUIRE(info.point_count == 5);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    STATUS(api.sm_regularize_stroke(handle, state.revision, box_index, SM_SHAPE_CIRCLE, 0, &info), SM_OK);
+    REQUIRE(info.point_count == 65);
+
+    /* 非法种类 / 非法 flags / 单点笔划。 */
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    STATUS(api.sm_regularize_stroke(handle, state.revision, 0, 99, 0, &info), SM_INVALID_ARGUMENT);
+    STATUS(api.sm_regularize_stroke(handle, state.revision, 0, SM_SHAPE_LINE, 2, &info), SM_INVALID_ARGUMENT);
+    SmSample dot = {5.0, 5.0, 0, 0.0f, 0};
+    STATUS(api.sm_begin(handle, 2.0, 0), SM_OK);
+    STATUS(api.sm_append(handle, &dot, 1), SM_OK);
+    STATUS(api.sm_finish(handle), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    STATUS(api.sm_regularize_stroke(handle, state.revision, state.stroke_count - 1, SM_SHAPE_LINE, 0, &info), SM_INVALID_ARGUMENT);
+    STATUS(api.sm_destroy(handle), SM_OK);
+    return 0;
+}
+
 int main(int argc, char **argv) {
 #ifdef SM_STATIC
     if (argc != 2) { fprintf(stderr, "usage: smoke SNAPSHOT_PATH\n"); return 2; }
@@ -573,6 +645,7 @@ int main(int argc, char **argv) {
     if (brush_smoke()) { return 1; }
     if (viewport_smoke()) { return 1; }
     if (hit_erase_smoke()) { return 1; }
+    if (shape_smoke()) { return 1; }
     if (transform_smoke()) { return 1; }
     if (selection_smoke()) { return 1; }
     if (partial_erase_smoke()) { return 1; }
