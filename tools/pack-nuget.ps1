@@ -31,7 +31,7 @@ New-Item -ItemType Directory -Force -Path $packDir | Out-Null
     -c $Configuration -o $packDir -p:ScratchmarkNativeDll=$($dll.FullName)
 if ($LASTEXITCODE -ne 0) { throw 'dotnet pack 失败' }
 
-$nupkg = Get-ChildItem $packDir -Filter 'Scratchmark.$version.nupkg' | Select-Object -First 1
+$nupkg = Get-ChildItem $packDir -Filter "Scratchmark.$version.nupkg" | Select-Object -First 1
 if (-not $nupkg) { throw '没有产出 nupkg' }
 Write-Host ("包: {0} ({1:N0} 字节)" -f $nupkg.Name, $nupkg.Length)
 

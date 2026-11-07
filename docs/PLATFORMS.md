@@ -101,7 +101,7 @@ pwsh tools/pack-nuget.ps1      # nupkg + 消费方 11 项
 | `dist/android/jniLibs/x86_64/libscratchmark.so` + `_jni.so` | 509,048 + 495,976 |
 | `dist/linux/libscratchmark.so` | 511,864 |
 | `dist/linux/libscratchmark.a`（musl 静态，备用） | 24,998,854 |
-| `dist/nuget/Scratchmark.0.1.0.nupkg` | 1,122,927 |
+| `dist/nuget/Scratchmark.0.1.0.nupkg` | 1,123,654 |
 ## 宿主接入要点（跨平台一致）
 
 1. 动态加载库，核对 `sm_abi_version() == 1`，再核对 `sm_features()` 覆盖你需要的位。

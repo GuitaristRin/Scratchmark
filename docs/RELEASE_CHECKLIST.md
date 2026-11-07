@@ -1,17 +1,17 @@
 # 发布前清单（0.1.0-pre）
 
-状态：**未发布**。本文件记录公开发布前必须先决定或完成的事；做完一项勾一项，全部完成才动
+状态：**0.1.0-pre 已发布**（见 GitHub Releases）。本文件记录公开发布前必须先决定或完成的事；做完一项勾一项，全部完成才动
 `git push` / `gh repo edit --visibility public` / `gh release create`。
 
 ## 一、必须先决定
 
-- [ ] **许可证**：见下节方案，选定后写入 `LICENSE`（与 `package.json`/`Cargo.toml`/nuspec 的 `license` 字段保持一致）。
-- [ ] **历史处理**：仓库现有 127 个提交，其中多轮文档提到了参考产品的**反向工程结论**。仅删除工作区文件不够——
+- [x] **许可证**：见下节方案，选定后写入 `LICENSE`（与 `package.json`/`Cargo.toml`/nuspec 的 `license` 字段保持一致）。
+- [x] **历史处理**：仓库现有 127 个提交，其中多轮文档提到了参考产品的**反向工程结论**。仅删除工作区文件不够——
       `git log -S` 仍能查到。可选：
   - **A. 重写历史**：删除相关文件并清理提交信息，然后 `git push --force`。工程历史保留，但所有 SHA 变化。
   - **B. 压成单个提交**：用当前（已清理的）工作区做一次 `0.1.0-pre` 提交，`--force` 覆盖 `main`。公开历史从 1 个提交开始。
   - **C. 新开公开仓库**：本仓继续私有开发，另建公开仓只放发布快照。
-- [ ] **制品范围**：pre-release 是否附二进制（Windows `.zip`、`.nupkg`、`wasm`、Android `.so`、Linux `.so`）？
+- [x] **制品范围**：pre-release 是否附二进制（Windows `.zip`、`.nupkg`、`wasm`、Android `.so`、Linux `.so`）？
       附制品要同时满足依赖许可证（当前唯一第三方依赖 `jni` 是 `MIT/Apache-2.0`，选 Apache 需附 `NOTICE`）。
 
 ## 二、清理范围（当前工作区）
