@@ -140,4 +140,8 @@ internal static unsafe class Native
         out uint strokes, out uint found);
     [DllImport(Library, EntryPoint = "sm_translate_all", CallingConvention = CallingConvention.Cdecl)]
     internal static extern Status TranslateAll(ulong handle, ulong revision, double dx, double dy);
+    [DllImport(Library, EntryPoint = "sm_brush_preset", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status BrushPreset(uint kind, uint level, out double ratio);
+    [DllImport(Library, EntryPoint = "sm_brush_preset_width", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status BrushPresetWidth(uint kind, uint level, double maxWidth, out double width);
 }

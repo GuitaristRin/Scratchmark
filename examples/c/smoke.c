@@ -60,6 +60,8 @@ _Static_assert(sizeof(SmBounds) == 32, "SmBounds ABI");
     X(SmStatus, sm_read_axes, (SmHandle, uint64_t, uint32_t, uint32_t, SmSampleAxes *, uint32_t, uint32_t *)) \
     X(SmStatus, sm_document_bounds, (SmHandle, uint64_t, SmBounds *, uint32_t *, uint32_t *)) \
     X(SmStatus, sm_translate_all, (SmHandle, uint64_t, double, double)) \
+    X(SmStatus, sm_brush_preset, (uint32_t, uint32_t, double *)) \
+    X(SmStatus, sm_brush_preset_width, (uint32_t, uint32_t, double, double *)) \
     X(SmStatus, sm_page_to_viewport, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_viewport_to_page, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_width_page_to_viewport, (const SmViewport *, double, double *)) \
@@ -802,6 +804,38 @@ static int extent_smoke(void) {
     return 0;
 }
 
+/* 笔型尺寸预置：25 个组合、递增、宽度换算与非法输入。 */
+static int preset_smoke(void) {
+    REQUIRE((api.sm_features() & SM_FEATURE_BRUSH_PRESET) != 0);
+    for (uint32_t kind = SM_BRUSH_PENCIL; kind <= SM_BRUSH_ERASER; kind++) {
+        double previous = 0.0;
+        for (uint32_t level = 1; level <= SM_BRUSH_LEVELS; level++) {
+            double ratio = 0.0;
+            STATUS(api.sm_brush_preset(kind, level, &ratio), SM_OK);
+            REQUIRE(ratio > 0.0 && ratio <= 1.0);
+            REQUIRE(ratio > previous);
+            previous = ratio;
+        }
+    }
+    double ratio = 0.0, width = 0.0;
+    STATUS(api.sm_brush_preset(SM_BRUSH_PENCIL, 3, &ratio), SM_OK);
+    REQUIRE(fabs(ratio - 0.26) < 1e-12);
+    STATUS(api.sm_brush_preset_width(SM_BRUSH_PENCIL, 3, 10.0, &width), SM_OK);
+    REQUIRE(fabs(width - 2.6) < 1e-12);
+    STATUS(api.sm_brush_preset_width(SM_BRUSH_MARKER, 5, 1e6, &width), SM_OK);
+    REQUIRE(fabs(width - 750000.0) < 1e-9);
+
+    /* 非法输入不写输出。 */
+    ratio = 99.0; width = 99.0;
+    STATUS(api.sm_brush_preset(0, 1, &ratio), SM_INVALID_ARGUMENT);
+    STATUS(api.sm_brush_preset(SM_BRUSH_PENCIL, 6, &ratio), SM_INVALID_ARGUMENT);
+    STATUS(api.sm_brush_preset_width(SM_BRUSH_PENCIL, 1, 0.0, &width), SM_INVALID_ARGUMENT);
+    STATUS(api.sm_brush_preset_width(SM_BRUSH_PENCIL, 1, 1e6 + 1.0, &width), SM_INVALID_ARGUMENT);
+    STATUS(api.sm_brush_preset(SM_BRUSH_PENCIL, 1, NULL), SM_INVALID_ARGUMENT);
+    REQUIRE(ratio == 99.0 && width == 99.0);
+    return 0;
+}
+
 int main(int argc, char **argv) {
 #ifdef SM_STATIC
     if (argc != 2) { fprintf(stderr, "usage: smoke SNAPSHOT_PATH\n"); return 2; }
@@ -885,6 +919,7 @@ int main(int argc, char **argv) {
     if (brush_smoke()) { return 1; }
     if (viewport_smoke()) { return 1; }
     if (hit_erase_smoke()) { return 1; }
+    if (preset_smoke()) { return 1; }
     if (extent_smoke()) { return 1; }
     if (axes_smoke()) { return 1; }
     if (predict_smoke()) { return 1; }

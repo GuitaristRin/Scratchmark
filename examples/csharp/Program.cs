@@ -54,6 +54,7 @@ internal static unsafe partial class Program
         PredictionChecks(args[0]);
         StylusAxes(args[0]);
         PageExtent(args[0]);
+        BrushPreset(args[0]);
         Console.WriteLine($"C# smoke: {checks} checks passed");
         return 0;
     }

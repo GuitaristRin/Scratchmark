@@ -213,3 +213,29 @@ public struct SampleAxes
 {
     public float Tilt, Orientation;
 }
+/* M13 笔型尺寸预置：五档比例；纹理与透明度仍由宿主决定。 */
+public enum BrushKind : uint
+{
+    Pencil = 1, Marker = 2, Ballpen = 3, Pen = 4, Eraser = 5
+}
+
+public static class BrushPresets
+{
+    public const uint Levels = 5;
+
+    /// <summary>查询归一化比例 (0, 1]；档位从 1 开始。</summary>
+    public static double Ratio(BrushKind kind, uint level)
+    {
+        Status status = Native.BrushPreset((uint)kind, level, out double ratio);
+        if (status != Status.Ok) throw new ScratchmarkException(status);
+        return ratio;
+    }
+
+    /// <summary>档位换算成实际线宽：maxWidth × ratio。</summary>
+    public static double Width(BrushKind kind, uint level, double maxWidth)
+    {
+        Status status = Native.BrushPresetWidth((uint)kind, level, maxWidth, out double width);
+        if (status != Status.Ok) throw new ScratchmarkException(status);
+        return width;
+    }
+}
