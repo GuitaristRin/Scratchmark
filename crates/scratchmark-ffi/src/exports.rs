@@ -4,7 +4,7 @@ use crate::{
 };
 use scratchmark_core::{
     Bounds, BrushOptions, BrushPoint, Error, MAX_BATCH, MAX_POINTS, MAX_SNAPSHOT, MAX_STROKES,
-    Point, Sample, ShapeInfo, ShapeKind, State, StrokeInfo, Transform, Viewport,
+    Point, Sample, ShapeInfo, ShapeKind, State, StrokeInfo, Transform, Viewport, ViewportEx,
 };
 
 /// # Safety
@@ -138,6 +138,8 @@ mod shape_tests;
 mod tests;
 #[cfg(test)]
 mod transform_tests;
+#[cfg(test)]
+mod viewport_ex_tests;
 #[cfg(test)]
 mod viewport_tests;
 
@@ -477,6 +479,153 @@ pub unsafe extern "C" fn sm_bounds_page_to_viewport(
         let bounds = unsafe { viewport.read() }.bounds_page_to_viewport(unsafe { input.read() })?;
         unsafe {
             out_bounds.write(bounds);
+        }
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 视口、输入与输出指针必须有效、对齐且互不重叠；约束参 spec/M9.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_page_to_viewport_ex(
+    viewport: *const ViewportEx,
+    input: *const Point,
+    out_point: *mut Point,
+) -> u32 {
+    guard(|| {
+        required(viewport)?;
+        required(input)?;
+        required(out_point)?;
+        let point = unsafe { viewport.read() }.page_to_viewport(unsafe { input.read() })?;
+        unsafe {
+            out_point.write(point);
+        }
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 视口、输入与输出指针必须有效、对齐且互不重叠；约束参 spec/M9.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_viewport_to_page_ex(
+    viewport: *const ViewportEx,
+    input: *const Point,
+    out_point: *mut Point,
+) -> u32 {
+    guard(|| {
+        required(viewport)?;
+        required(input)?;
+        required(out_point)?;
+        let point = unsafe { viewport.read() }.viewport_to_page(unsafe { input.read() })?;
+        unsafe {
+            out_point.write(point);
+        }
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 视口与输出指针必须有效、对齐且互不重叠；约束参 spec/M9.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_width_page_to_viewport_ex(
+    viewport: *const ViewportEx,
+    width: f64,
+    out_width: *mut f64,
+) -> u32 {
+    guard(|| {
+        required(viewport)?;
+        required(out_width)?;
+        let width = unsafe { viewport.read() }.width_page_to_viewport(width)?;
+        unsafe {
+            out_width.write(width);
+        }
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 视口与输出指针必须有效、对齐且互不重叠；约束参 spec/M9.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_width_viewport_to_page_ex(
+    viewport: *const ViewportEx,
+    width: f64,
+    out_width: *mut f64,
+) -> u32 {
+    guard(|| {
+        required(viewport)?;
+        required(out_width)?;
+        let width = unsafe { viewport.read() }.width_viewport_to_page(width)?;
+        unsafe {
+            out_width.write(width);
+        }
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 视口、输入与输出指针必须有效、对齐且互不重叠；约束参 spec/M9.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_bounds_page_to_viewport_ex(
+    viewport: *const ViewportEx,
+    input: *const Bounds,
+    out_bounds: *mut Bounds,
+) -> u32 {
+    guard(|| {
+        required(viewport)?;
+        required(input)?;
+        required(out_bounds)?;
+        let bounds = unsafe { viewport.read() }.bounds_page_to_viewport(unsafe { input.read() })?;
+        unsafe {
+            out_bounds.write(bounds);
+        }
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 视口、锚点与输出视口指针必须有效、对齐且互不重叠；约束参 spec/M9.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_viewport_ex_zoom_at(
+    viewport: *const ViewportEx,
+    anchor: *const Point,
+    factor: f64,
+    out_viewport: *mut ViewportEx,
+) -> u32 {
+    guard(|| {
+        required(viewport)?;
+        required(anchor)?;
+        required(out_viewport)?;
+        let zoomed = unsafe { viewport.read() }.zoom_at(unsafe { anchor.read() }, factor)?;
+        unsafe {
+            out_viewport.write(zoomed);
+        }
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 页面边界与输出视口指针必须有效、对齐且互不重叠；约束参 spec/M9.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_viewport_ex_fit(
+    page_bounds: *const Bounds,
+    view_width: f64,
+    view_height: f64,
+    angle: f64,
+    padding: f64,
+    out_viewport: *mut ViewportEx,
+) -> u32 {
+    guard(|| {
+        required(page_bounds)?;
+        required(out_viewport)?;
+        let fitted = ViewportEx::fit(
+            unsafe { page_bounds.read() },
+            view_width,
+            view_height,
+            angle,
+            padding,
+        )?;
+        unsafe {
+            out_viewport.write(fitted);
         }
         Ok(())
     })
