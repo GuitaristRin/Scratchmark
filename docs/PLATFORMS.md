@@ -13,7 +13,7 @@ SDK 版本见 `Cargo.toml`；能力位见 `sm_features()`（当前用到 bit 0�
 | Windows x64 | `scratchmark.dll` / `.lib` | 本机 gnu 工具链 | ✅ C 662 + C# 547 项 | 已交付 |
 | WebAssembly | `scratchmark.wasm` | 本机（wasm32-unknown-unknown） | ✅ Node 里 53 项 | 已交付 |
 | Android | `jniLibs/<abi>/{libscratchmark,libscratchmark_jni}.so` + Kotlin 封装 + AAR 骨架 | 本机 + NDK 30 | ❌ 无设备/模拟器 | 产物与封装已生成，仅编译与符号核对 |
-| Linux x86_64 | `libscratchmark.a`（静态，musl） | 本机 | ❌ 无 Linux 运行时 | 仅编译与符号核对 |
+| Linux x86_64 | `libscratchmark.so`（glibc 2.17 基线，512 KB） | 本机 + zig | ❌ 无 Linux 运行时 | 已交付产物，仅编译 / 符号 / 依赖核对 |
 | iOS | 源码与脚本 | ❌ 需要 macOS + Xcode | ❌ | 尚未开始 |
 | .NET (NuGet) | `Scratchmark.0.18.0.nupkg`（含 `runtimes/win-x64/native/scratchmark.dll`） | 本机 | ✅ 消费方装包后 11 项 | 已交付 |
 
@@ -48,14 +48,15 @@ pwsh tools/build-android.ps1            # 三个 ABI 的 C 层 + JNI 层 .so →
 ## Linux
 
 ```powershell
-cargo build -p scratchmark-ffi --release --target x86_64-unknown-linux-musl
+pwsh tools/build-linux.ps1
 ```
 
-- **只能出静态库** `libscratchmark.a`：`cdylib` 在 `x86_64-unknown-linux-musl` 上被 cargo 明确丢弃
-  （`dropping unsupported crate type cdylib`），而 `.so` 需要有 Linux 链接器（本机没有，也没有 WSL 发行版）。
-- 在有 Linux 的机器上产 `.so` 的命令：`cargo build -p scratchmark-ffi --release --target x86_64-unknown-linux-gnu`。
-- 未验证：任何运行行为。
-
+- 有 zig 时：用 `zig cc -target x86_64-linux-gnu.2.17` 当交叉链接器，产出真正的 **`libscratchmark.so`**
+  （ELF64 / DYN / x86-64，**52 个 `sm_*` 导出**，依赖只有 `libm`、`libc`、`ld-linux`、`libpthread`、`libdl`，strip 后 **512 KB**）。
+- 没有 zig 时：退回 `x86_64-unknown-linux-musl` 静态库 `libscratchmark.a`——cargo 会明确
+  `dropping unsupported crate type cdylib`，musl 目标出不了 `.so`。
+- 验证等级：**编译 + 符号 + 依赖核对**，本机没有 Linux 运行时，**未验证运行**。
+- zig 版本记录：0.18.0-dev.930（`%LOCALAPPDATA%\zig`）；脚本用 `ZIG_EXE` 或自动探测，不把绝对路径提交进仓库。
 ## Windows
 
 见 `docs/SDK_README.md`：`tools/build-sdk.ps1` 打包，`tools/verify-sdk.ps1` 在源码树外解压并跑 C 动态 / C 静态 / C# 三套冒烟。
