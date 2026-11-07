@@ -52,6 +52,7 @@ internal static unsafe partial class Program
         Shape(args[0]);
         ViewportRotation(args[0]);
         PredictionChecks(args[0]);
+        StylusAxes(args[0]);
         Console.WriteLine($"C# smoke: {checks} checks passed");
         return 0;
     }

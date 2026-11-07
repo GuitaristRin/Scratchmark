@@ -207,3 +207,9 @@ public struct PredictionOptions
     public uint Count, Reserved;
     public BrushOptions Brush;
 }
+/* M11 逐点轴向：倾斜 [0, π/2]，朝向 [-π, π]，单位弧度；0 表示垂直或未提供。 */
+[StructLayout(LayoutKind.Sequential)]
+public struct SampleAxes
+{
+    public float Tilt, Orientation;
+}

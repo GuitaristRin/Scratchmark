@@ -56,6 +56,8 @@ _Static_assert(sizeof(SmBounds) == 32, "SmBounds ABI");
     X(SmStatus, sm_viewport_ex_zoom_at, (const SmViewportEx *, const SmPoint *, double, SmViewportEx *)) \
     X(SmStatus, sm_viewport_ex_fit, (const SmBounds *, double, double, double, double, SmViewportEx *)) \
     X(SmStatus, sm_predict, (SmHandle, uint64_t, const SmPredictionOptions *, SmBrushPoint *, uint32_t, uint32_t *)) \
+    X(SmStatus, sm_append_axes, (SmHandle, const SmSample *, const SmSampleAxes *, uint32_t)) \
+    X(SmStatus, sm_read_axes, (SmHandle, uint64_t, uint32_t, uint32_t, SmSampleAxes *, uint32_t, uint32_t *)) \
     X(SmStatus, sm_page_to_viewport, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_viewport_to_page, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_width_page_to_viewport, (const SmViewport *, double, double *)) \
@@ -689,6 +691,58 @@ static int predict_smoke(void) {
     return 0;
 }
 
+/* 逐点轴向：往返、默认值、非法值拒绝、格式 3 快照。 */
+static int axes_smoke(void) {
+    REQUIRE((api.sm_features() & SM_FEATURE_STYLUS_AXES) != 0);
+    SmHandle handle = 0;
+    STATUS(api.sm_create(&handle), SM_OK);
+    SmSample samples[2] = {{0.0, 0.0, 0, 0.0f, 0}, {10.0, 0.0, 1000, 0.0f, 0}};
+    SmSampleAxes axes[2] = {{0.0f, 0.0f}, {0.75f, -2.0f}};
+    STATUS(api.sm_begin(handle, 2.0, 0x11223344), SM_OK);
+    STATUS(api.sm_append_axes(handle, samples, axes, 2), SM_OK);
+
+    SmState state;
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    SmSampleAxes read[2];
+    uint32_t written = 0;
+    STATUS(api.sm_read_axes(handle, state.revision, 0, 0, read, 2, &written), SM_OK);
+    REQUIRE(written == 2 && read[1].tilt == 0.75f && read[1].orientation == -2.0f);
+    REQUIRE(fabsf(read[0].tilt) < 1e-6f);
+
+    /* 非法轴向整批拒绝。 */
+    SmSampleAxes bad[1] = {{2.0f, 0.0f}};
+    STATUS(api.sm_append_axes(handle, samples, bad, 1), SM_INVALID_ARGUMENT);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.active_points == 2);
+
+    /* 默认轴向：普通 append 写入 (0, 0)；时间必须非递减，接在 1000 之后。 */
+    SmSample plain[1] = {{0.0, 20.0, 2000, 0.0f, 0}};
+    STATUS(api.sm_append(handle, plain, 1), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    SmSampleAxes zero[1];
+    STATUS(api.sm_read_axes(handle, state.revision, 0, 2, zero, 1, &written), SM_OK);
+    REQUIRE(written == 1 && zero[0].tilt == 0.0f && zero[0].orientation == 0.0f);
+    STATUS(api.sm_finish(handle), SM_OK);
+
+    /* 带轴向的文档存成格式 3。 */
+    uint32_t required = 0;
+    STATUS(api.sm_save(handle, NULL, 0, &required), SM_BUFFER_TOO_SMALL);
+    uint8_t *bytes = malloc(required);
+    REQUIRE(bytes != NULL);
+    STATUS(api.sm_save(handle, bytes, required, &required), SM_OK);
+    REQUIRE(memcmp(bytes, "SCRATCH3", 8) == 0);
+    SmHandle other = 0;
+    STATUS(api.sm_create(&other), SM_OK);
+    STATUS(api.sm_load(other, bytes, required), SM_OK);
+    STATUS(api.sm_get_state(other, &state), SM_OK);
+    STATUS(api.sm_read_axes(other, state.revision, 0, 0, read, 2, &written), SM_OK);
+    REQUIRE(written == 2 && read[1].tilt == 0.75f && read[1].orientation == -2.0f);
+    free(bytes);
+    STATUS(api.sm_destroy(other), SM_OK);
+    STATUS(api.sm_destroy(handle), SM_OK);
+    return 0;
+}
+
 int main(int argc, char **argv) {
 #ifdef SM_STATIC
     if (argc != 2) { fprintf(stderr, "usage: smoke SNAPSHOT_PATH\n"); return 2; }
@@ -772,6 +826,7 @@ int main(int argc, char **argv) {
     if (brush_smoke()) { return 1; }
     if (viewport_smoke()) { return 1; }
     if (hit_erase_smoke()) { return 1; }
+    if (axes_smoke()) { return 1; }
     if (predict_smoke()) { return 1; }
     if (viewport_ex_smoke()) { return 1; }
     if (shape_smoke()) { return 1; }

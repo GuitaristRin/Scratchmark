@@ -205,6 +205,30 @@ public sealed unsafe class Engine : IDisposable
         catch { }
     }
 
+    /// <summary>与坐标同批写入逐点轴向（倾斜 / 朝向）；两数组长度必须一致。</summary>
+    public void AppendAxes(ReadOnlySpan<Sample> samples, ReadOnlySpan<SampleAxes> axes)
+    {
+        if (samples.Length != axes.Length) throw new ArgumentException("samples and axes must have the same length", nameof(axes));
+        lock (gate)
+        {
+            fixed (Sample* points = samples)
+            fixed (SampleAxes* values = axes)
+                Check(Native.AppendAxes(Handle, points, values, (uint)samples.Length));
+        }
+    }
+
+    /// <summary>读取逐点轴向；分段与容量语义同 ReadPoints。</summary>
+    public uint ReadAxes(ulong revision, uint index, uint start, Span<SampleAxes> destination)
+    {
+        lock (gate)
+        fixed (SampleAxes* values = destination)
+        {
+            uint written = 0;
+            Check(Native.ReadAxes(Handle, revision, index, start, values, (uint)destination.Length, &written));
+            return written;
+        }
+    }
+
     /// <summary>预测笔迹：只读外推活动笔划的尾迹，不写文档、不改 revision。</summary>
     public BrushPoint[] Predict(ulong revision, PredictionOptions options)
     {
