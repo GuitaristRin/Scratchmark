@@ -174,3 +174,41 @@ fn segments_intersect(
         || (d3 == 0.0 && on_segment(ax, ay, bx, by, cx, cy))
         || (d4 == 0.0 && on_segment(ax, ay, bx, by, dx, dy))
 }
+
+impl Document {
+    /// 原子剪切：先编码剪贴板字节，再在**同一个**撤销条目里删除选区。
+    ///
+    /// 与“复制 + 删除”两步的区别在于撤销粒度：一次撤销必须整体恢复。
+    pub fn cut_strokes(&mut self, revision: u64, indices: &[u32]) -> Result<Vec<u8>> {
+        self.ensure_idle()?;
+        if revision != self.revision {
+            return Err(Error::StaleRevision);
+        }
+        if indices.is_empty() {
+            return Err(Error::InvalidArgument);
+        }
+        let sorted = self.sorted_indices(indices)?;
+        // 先编码再删除：编码读的是删除前的几何。
+        let blob = {
+            let selected: Vec<&Stroke> = sorted.iter().map(|&index| &self.strokes[index]).collect();
+            crate::codec::encode_copy(&selected)
+        };
+        self.edit(move |d| {
+            d.discard_redo();
+            let mut ops = Vec::with_capacity(sorted.len());
+            for (removed, &index) in sorted.iter().enumerate() {
+                let at = index - removed;
+                let stroke = d.strokes.remove(at);
+                ops.push(ReplaceOp {
+                    index: at,
+                    after_count: 0,
+                    before: Some(stroke),
+                    after: None,
+                });
+            }
+            d.undo.push(Edit::Replace(ops));
+            Ok(())
+        })?;
+        Ok(blob)
+    }
+}
