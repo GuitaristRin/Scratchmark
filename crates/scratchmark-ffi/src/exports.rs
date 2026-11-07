@@ -4,7 +4,7 @@ use crate::{
 };
 use scratchmark_core::{
     Bounds, BrushOptions, BrushPoint, Error, MAX_BATCH, MAX_POINTS, MAX_SNAPSHOT, MAX_STROKES,
-    Point, Sample, State, StrokeInfo, Transform, Viewport,
+    Point, Sample, ShapeInfo, ShapeKind, State, StrokeInfo, Transform, Viewport,
 };
 
 /// # Safety
@@ -132,6 +132,8 @@ mod erase_path_tests;
 mod hit_tests;
 #[cfg(test)]
 mod select_tests;
+#[cfg(test)]
+mod shape_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
@@ -330,6 +332,34 @@ pub unsafe extern "C" fn sm_paste(
             unsafe { Some(transform.read()) }
         };
         with_doc(handle, |d| d.paste(revision, bytes, transform.as_ref()))
+    })
+}
+
+/// # Safety
+/// 输出指针必须有效且对齐；`flags` 只允许 bit 0。语义参 spec/M8.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_regularize_stroke(
+    handle: u64,
+    revision: u64,
+    index: u32,
+    kind: u32,
+    flags: u32,
+    out_info: *mut ShapeInfo,
+) -> u32 {
+    guard(|| {
+        required(out_info)?;
+        if flags & !1 != 0 {
+            return Err(Error::InvalidArgument);
+        }
+        let kind = ShapeKind::from_u32(kind)?;
+        let preview = flags & 1 != 0;
+        let info = with_doc(handle, |d| {
+            d.regularize_stroke(revision, index, kind, preview)
+        })?;
+        unsafe {
+            out_info.write(info);
+        }
+        Ok(())
     })
 }
 

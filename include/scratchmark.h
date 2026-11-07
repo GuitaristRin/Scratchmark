@@ -57,6 +57,15 @@ typedef struct SmBrushPoint {
 typedef struct SmTransform {
     double m00, m01, m10, m11, dx, dy;
 } SmTransform;
+/* M8 形状规整；种类、残差与预览模式参 spec/M8.md。 */
+#define SM_FEATURE_SHAPE UINT64_C(64)
+enum {
+    SM_SHAPE_LINE = 1, SM_SHAPE_RECTANGLE = 2, SM_SHAPE_CIRCLE = 3, SM_SHAPE_ARROW = 4
+};
+typedef struct SmShapeInfo {
+    uint32_t kind, stroke_count, point_count, reserved;
+    double error;
+} SmShapeInfo;
 
 uint32_t SM_CALL sm_abi_version(void);
 uint64_t SM_CALL sm_features(void);
@@ -117,6 +126,9 @@ SmStatus SM_CALL sm_copy_strokes(SmHandle handle, uint64_t revision,
     uint8_t *out_data, uint32_t capacity, uint32_t *out_required);
 SmStatus SM_CALL sm_paste(SmHandle handle, uint64_t revision,
     const uint8_t *data, uint32_t length, const SmTransform *transform);
+/* flags bit 0 = 只测量不替换（预览）；残差由宿主决定是否采纳。 */
+SmStatus SM_CALL sm_regularize_stroke(SmHandle handle, uint64_t revision,
+    uint32_t index, uint32_t kind, uint32_t flags, SmShapeInfo *out_info);
 /* 视口 <-> 页面纯函数：viewport = page * scale + offset；线宽按 scale 缩放。 */
 SmStatus SM_CALL sm_page_to_viewport(const SmViewport *viewport,
     const SmPoint *in, SmPoint *out);
