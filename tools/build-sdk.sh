@@ -47,6 +47,7 @@ cp -- spec/M6.md "$sdk/spec/"
 cp -- spec/M7.md "$sdk/spec/"
 cp -- spec/M8.md "$sdk/spec/"
 cp -- spec/M9.md "$sdk/spec/"
+cp -- spec/M10.md "$sdk/spec/"
 
 head=$(git rev-parse HEAD)
 if [[ -n $(git status --porcelain --untracked-files=normal) ]]; then dirty=true; else dirty=false; fi
@@ -57,7 +58,7 @@ jq -n \
     --argjson sourceDirty "$dirty" \
     --arg compiler "$compiler_info" \
     --arg dependencies "Rust standard library and Linux system libraries" \
-    '{sdkVersion: $sdkVersion, abi: 1, features: 255, snapshotFormat: 2, target: $target,
+    '{sdkVersion: $sdkVersion, abi: 1, features: 511, snapshotFormat: 2, target: $target,
       sourceCommit: $sourceCommit, sourceDirty: $sourceDirty, compiler: $compiler,
       status: "experimental", dependencies: $dependencies}' > "$sdk/build-info.json"
 

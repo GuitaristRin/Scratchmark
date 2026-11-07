@@ -55,6 +55,7 @@ _Static_assert(sizeof(SmBounds) == 32, "SmBounds ABI");
     X(SmStatus, sm_bounds_page_to_viewport_ex, (const SmViewportEx *, const SmBounds *, SmBounds *)) \
     X(SmStatus, sm_viewport_ex_zoom_at, (const SmViewportEx *, const SmPoint *, double, SmViewportEx *)) \
     X(SmStatus, sm_viewport_ex_fit, (const SmBounds *, double, double, double, double, SmViewportEx *)) \
+    X(SmStatus, sm_predict, (SmHandle, uint64_t, const SmPredictionOptions *, SmBrushPoint *, uint32_t, uint32_t *)) \
     X(SmStatus, sm_page_to_viewport, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_viewport_to_page, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_width_page_to_viewport, (const SmViewport *, double, double *)) \
@@ -629,6 +630,65 @@ static int viewport_ex_smoke(void) {
     return 0;
 }
 
+/* 预测笔迹：匀速外推、长度上限、空预测、非法选项与只读性。 */
+static int predict_smoke(void) {
+    REQUIRE((api.sm_features() & SM_FEATURE_PREDICTION) != 0);
+    SmHandle handle = 0;
+    STATUS(api.sm_create(&handle), SM_OK);
+    SmPredictionOptions opts = {1000.0, 1000.0, 4, 0, {1.0, 1.0, 0, 0}};
+    SmBrushPoint points[8];
+    uint32_t written = 99;
+    SmState state;
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+
+    /* 没有活动笔划：成功但零预测点。 */
+    STATUS(api.sm_predict(handle, state.revision, &opts, points, 8, &written), SM_OK);
+    REQUIRE(written == 0);
+
+    /* 匀速活动笔划：0.1 单位/微秒。 */
+    SmSample moving[3] = {{0.0, 0.0, 0, 0.0f, 0}, {50.0, 0.0, 500, 0.0f, 0}, {100.0, 0.0, 1000, 0.0f, 0}};
+    STATUS(api.sm_begin(handle, 2.0, 0x11223344), SM_OK);
+    STATUS(api.sm_append(handle, moving, 3), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    written = 99;
+    STATUS(api.sm_predict(handle, state.revision, &opts, points, 8, &written), SM_OK);
+    REQUIRE(written == 4);
+    REQUIRE(fabs(points[0].x - 125.0) < 1e-9 && fabs(points[3].x - 200.0) < 1e-9);
+    REQUIRE(fabs(points[0].width - 2.0) < 1e-9);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.active_points == 3);
+
+    /* 长度上限：总位移收缩到 10。 */
+    SmPredictionOptions capped = {1000.0, 10.0, 5, 0, {1.0, 1.0, 0, 0}};
+    STATUS(api.sm_predict(handle, state.revision, &capped, points, 8, &written), SM_OK);
+    REQUIRE(written == 5 && fabs(points[4].x - 110.0) < 1e-9);
+
+    /* 容量不足：回报所需数量，数组不动。 */
+    points[0].x = 77.0;
+    written = 99;
+    STATUS(api.sm_predict(handle, state.revision, &opts, points, 1, &written), SM_BUFFER_TOO_SMALL);
+    REQUIRE(written == 4 && points[0].x == 77.0);
+
+    /* 非法选项与过期 revision。 */
+    SmPredictionOptions zero_span = {0.0, 1000.0, 4, 0, {1.0, 1.0, 0, 0}};
+    STATUS(api.sm_predict(handle, state.revision, &zero_span, points, 8, &written), SM_INVALID_ARGUMENT);
+    SmPredictionOptions too_many = {1000.0, 1000.0, 65, 0, {1.0, 1.0, 0, 0}};
+    STATUS(api.sm_predict(handle, state.revision, &too_many, points, 8, &written), SM_INVALID_ARGUMENT);
+    STATUS(api.sm_predict(handle, state.revision - 1, &opts, points, 8, &written), SM_STALE_REVISION);
+
+    /* 提交后预测为空，历史不受影响。 */
+    STATUS(api.sm_finish(handle), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    STATUS(api.sm_predict(handle, state.revision, &opts, points, 8, &written), SM_OK);
+    REQUIRE(written == 0);
+    REQUIRE(state.can_undo == 1);
+    STATUS(api.sm_undo(handle), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.stroke_count == 0);
+    STATUS(api.sm_destroy(handle), SM_OK);
+    return 0;
+}
+
 int main(int argc, char **argv) {
 #ifdef SM_STATIC
     if (argc != 2) { fprintf(stderr, "usage: smoke SNAPSHOT_PATH\n"); return 2; }
@@ -712,6 +772,7 @@ int main(int argc, char **argv) {
     if (brush_smoke()) { return 1; }
     if (viewport_smoke()) { return 1; }
     if (hit_erase_smoke()) { return 1; }
+    if (predict_smoke()) { return 1; }
     if (viewport_ex_smoke()) { return 1; }
     if (shape_smoke()) { return 1; }
     if (transform_smoke()) { return 1; }
