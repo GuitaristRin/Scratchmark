@@ -1,6 +1,6 @@
 # Scratchmark M0 开发 SDK
 
-这是无 UI 的实验性原生引擎，SDK 0.11.0 / ABI 1，快照格式 1 / 2（页面标识）/ 3（逐点轴向），能力位 bit 0 支持平滑 / 压力派生读取，bit 1 支持页面标识与视口变换，bit 2 支持命中测试与整笔擦除，bit 3 支持沿擦除路径的局部擦除，bit 4 支持套索命中与批量删除，bit 5 支持选区变换与复制粘贴，bit 6 支持形状规整，bit 7 支持带旋转的视口，bit 8 支持预测笔迹，bit 9 支持逐点轴向（倾斜 / 朝向）。不提供稳定发布兼容承诺；原始行为参 `spec/M0.md`，派生笔刷参 `spec/M2.md`，页面标识与视口参 `spec/M3.md`，命中与整笔擦除参 `spec/M4.md`，局部擦除参 `spec/M5.md`，套索与批量删除参 `spec/M6.md`，选区变换与复制粘贴参 `spec/M7.md`，形状规整参 `spec/M8.md`，视口旋转参 `spec/M9.md`，预测笔迹参 `spec/M10.md`，逐点轴向与格式 3 参 `spec/M11.md`。
+这是无 UI 的实验性原生引擎，SDK 0.12.0 / ABI 1，快照格式 1 / 2（页面标识）/ 3（逐点轴向），能力位 bit 0 支持平滑 / 压力派生读取，bit 1 支持页面标识与视口变换，bit 2 支持命中测试与整笔擦除，bit 3 支持沿擦除路径的局部擦除，bit 4 支持套索命中与批量删除，bit 5 支持选区变换与复制粘贴，bit 6 支持形状规整，bit 7 支持带旋转的视口，bit 8 支持预测笔迹，bit 9 支持逐点轴向（倾斜 / 朝向），bit 10 支持文档边界与整份平移。不提供稳定发布兼容承诺；原始行为参 `spec/M0.md`，派生笔刷参 `spec/M2.md`，页面标识与视口参 `spec/M3.md`，命中与整笔擦除参 `spec/M4.md`，局部擦除参 `spec/M5.md`，套索与批量删除参 `spec/M6.md`，选区变换与复制粘贴参 `spec/M7.md`，形状规整参 `spec/M8.md`，视口旋转参 `spec/M9.md`，预测笔迹参 `spec/M10.md`，逐点轴向与格式 3 参 `spec/M11.md`，文档边界与整份平移参 `spec/M12.md`。
 
 ## 包内容
 
@@ -31,7 +31,7 @@ Linux x86_64 GNU 使用 `tools/build-sdk.sh` 与 `tools/verify-sdk.sh`，包内�
 
 ## 调用顺序
 
-1. 动态加载库，核对 `sm_abi_version()`；使用派生笔刷需 `sm_features()` bit 0，页面标识 / 视口需 bit 1，命中 / 整笔擦除需 bit 2，局部擦除需 bit 3，套索与批量删除需 bit 4，变换与复制粘贴需 bit 5，形状规整需 bit 6，旋转视口需 bit 7，预测笔迹需 bit 8，轴向需 bit 9。创建句柄，可 `sm_set_page_id` 绑定宿主页面键。
+1. 动态加载库，核对 `sm_abi_version()`；使用派生笔刷需 `sm_features()` bit 0，页面标识 / 视口需 bit 1，命中 / 整笔擦除需 bit 2，局部擦除需 bit 3，套索与批量删除需 bit 4，变换与复制粘贴需 bit 5，形状规整需 bit 6，旋转视口需 bit 7，预测笔迹需 bit 8，轴向需 bit 9，边界 / 整份平移需 bit 10。创建句柄，可 `sm_set_page_id` 绑定宿主页面键。
 2. `sm_begin` → 一次或多次 `sm_append`；每次输入后均可读取活动笔迹。
 3. 用 `sm_get_state` 取得 revision，以同一 revision 读取笔划元数据及分段点；若状态改变，重新取得 revision。
 4. `sm_finish` 确认笔划或 `sm_cancel` 丢弃；空闲时可 undo / redo。
@@ -70,3 +70,5 @@ MSVC、UWP / .NET Native 与 Android JNI / AAR 尚未验收。SO 必须按目标
 `sm_predict` / C# `Predict` 返回活动笔划的预测尾迹（复用 `SmBrushPoint`，升序从笔尖向前）：速度取“最后至多 8 点”与“最近两点”各半，按 `horizon_us` 外推，超过 `max_distance` 等比收缩，越出页面域就在该点截断，笔宽取最后一个笔刷点并保持。没有活动笔划 / 少于两点 / 时间跨度不为正时返回 `OK` 且零预测点。预测**不是文档内容**：不写文档、不进快照、不改 revision，也不参与命中与编辑；是否启用与如何呈现由宿主决定。
 
 `sm_append_axes` / C# `AppendAxes` 与坐标同批写入逐点轴向：`tilt` 弧度 `[0, π/2]`、`orientation` 弧度 `[-π, π]`，非法值整批拒绝；`sm_read_axes` / `ReadAxes` 的分段与容量语义同 `sm_read_points`。`sm_append` 写入的样本轴向为 `(0, 0)`（同时表示垂直与未提供）。含非默认轴向的文档 `sm_save` 写**格式 3**（`SCRATCH3`，每样本多 8 字节），`sm_load` 接受 1 / 2 / 3；复制选区带轴向时产出格式 3 且页面标识为 0，粘贴接受它。轴向不参与命中、擦除与预测判定。
+
+`sm_document_bounds` / C# `DocumentBounds` 返回已提交笔划的并集边界（含笔宽）、笔划数与 `found`（空文档为 0，四值为 0，只读）。`sm_translate_all` / `TranslateAll` 整份平移，一次调用一个撤销条目，越界整次失败。**页面高度、顶部留白、内容偏移与滚动位置由宿主保留、不入快照**：宿主用 `sm_document_bounds` 决定页面要多高，若从顶部加长再调 `sm_translate_all` 把内容下移。

@@ -244,6 +244,22 @@ public sealed unsafe class Engine : IDisposable
         }
     }
 
+    /// <summary>文档边界：已提交笔划的并集（含笔宽）与笔划数；空文档 found 为 false。</summary>
+    public (Bounds Bounds, uint Strokes, bool Found) DocumentBounds(ulong revision)
+    {
+        lock (gate)
+        {
+            Check(Native.DocumentBounds(Handle, revision, out Bounds bounds, out uint strokes, out uint found));
+            return (bounds, strokes, found != 0);
+        }
+    }
+
+    /// <summary>整份平移：一次调用一个撤销条目，越界整次失败。</summary>
+    public void TranslateAll(ulong revision, double dx, double dy)
+    {
+        lock (gate) Check(Native.TranslateAll(Handle, revision, dx, dy));
+    }
+
     /// <summary>形状规整：preview 为真时只测量残差，不写文档、不占历史。</summary>
     public ShapeInfo RegularizeStroke(ulong revision, uint index, ShapeKind kind, bool preview = false)
     {

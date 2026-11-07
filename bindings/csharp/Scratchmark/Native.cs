@@ -35,8 +35,8 @@ internal static unsafe class Native
             }
             // 库保持到进程结束，避免 finalizer 或在途调用访问已卸载代码。
             if (AbiVersion() != 1) throw new NotSupportedException("Expected Scratchmark ABI 1.");
-            if (!NativeLibrary.TryGetExport(library, "sm_features", out _) || (Features() & 1023) != 1023)
-                throw new NotSupportedException("SDK does not support M2 brush, M3 page/viewport, M4 hit/erase, M5 partial erase, M6 selection, M7 transform, M8 shape, M9 viewport rotation, M10 prediction or M11 stylus axes.");
+            if (!NativeLibrary.TryGetExport(library, "sm_features", out _) || (Features() & 2047) != 2047)
+                throw new NotSupportedException("SDK does not support M2 brush, M3 page/viewport, M4 hit/erase, M5 partial erase, M6 selection, M7 transform, M8 shape, M9 viewport rotation, M10 prediction, M11 stylus axes or M12 page extent.");
         }
     }
 
@@ -135,4 +135,9 @@ internal static unsafe class Native
     [DllImport(Library, EntryPoint = "sm_read_axes", CallingConvention = CallingConvention.Cdecl)]
     internal static extern Status ReadAxes(ulong handle, ulong revision, uint index, uint start,
         SampleAxes* axes, uint capacity, uint* written);
+    [DllImport(Library, EntryPoint = "sm_document_bounds", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status DocumentBounds(ulong handle, ulong revision, out Bounds bounds,
+        out uint strokes, out uint found);
+    [DllImport(Library, EntryPoint = "sm_translate_all", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status TranslateAll(ulong handle, ulong revision, double dx, double dy);
 }

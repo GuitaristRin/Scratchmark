@@ -58,6 +58,8 @@ _Static_assert(sizeof(SmBounds) == 32, "SmBounds ABI");
     X(SmStatus, sm_predict, (SmHandle, uint64_t, const SmPredictionOptions *, SmBrushPoint *, uint32_t, uint32_t *)) \
     X(SmStatus, sm_append_axes, (SmHandle, const SmSample *, const SmSampleAxes *, uint32_t)) \
     X(SmStatus, sm_read_axes, (SmHandle, uint64_t, uint32_t, uint32_t, SmSampleAxes *, uint32_t, uint32_t *)) \
+    X(SmStatus, sm_document_bounds, (SmHandle, uint64_t, SmBounds *, uint32_t *, uint32_t *)) \
+    X(SmStatus, sm_translate_all, (SmHandle, uint64_t, double, double)) \
     X(SmStatus, sm_page_to_viewport, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_viewport_to_page, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_width_page_to_viewport, (const SmViewport *, double, double *)) \
@@ -743,6 +745,63 @@ static int axes_smoke(void) {
     return 0;
 }
 
+/* 文档边界与整份平移：空文档、并集、一次撤销、越界与活动笔划。 */
+static int extent_smoke(void) {
+    REQUIRE((api.sm_features() & SM_FEATURE_PAGE_EXTENT) != 0);
+    SmHandle handle = 0;
+    STATUS(api.sm_create(&handle), SM_OK);
+    SmState state;
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+
+    /* 空文档：found=0 且边界全零。 */
+    SmBounds bounds;
+    uint32_t strokes = 99, found = 99;
+    STATUS(api.sm_document_bounds(handle, state.revision, &bounds, &strokes, &found), SM_OK);
+    REQUIRE(found == 0 && strokes == 0);
+    REQUIRE(bounds.min_x == 0.0 && bounds.max_y == 0.0);
+
+    SmSample first[2] = {{0.0, 0.0, 0, 0.0f, 0}, {10.0, 0.0, 10, 0.0f, 0}};
+    SmSample second[2] = {{100.0, 50.0, 0, 0.0f, 0}, {120.0, 60.0, 10, 0.0f, 0}};
+    STATUS(api.sm_begin(handle, 2.0, 0), SM_OK);
+    STATUS(api.sm_append(handle, first, 2), SM_OK);
+    STATUS(api.sm_finish(handle), SM_OK);
+    STATUS(api.sm_begin(handle, 4.0, 0), SM_OK);
+    STATUS(api.sm_append(handle, second, 2), SM_OK);
+    STATUS(api.sm_finish(handle), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+
+    /* 并集含笔宽：第二笔宽 4，右侧多 2。 */
+    STATUS(api.sm_document_bounds(handle, state.revision, &bounds, &strokes, &found), SM_OK);
+    REQUIRE(found == 1 && strokes == 2);
+    REQUIRE(bounds.min_x == -1.0 && bounds.min_y == -1.0);
+    REQUIRE(bounds.max_x == 122.0 && bounds.max_y == 62.0);
+    STATUS(api.sm_document_bounds(handle, state.revision - 1, &bounds, &strokes, &found), SM_STALE_REVISION);
+
+    /* 整份平移：一次撤销整体回退。 */
+    double before_min_y = bounds.min_y;
+    STATUS(api.sm_translate_all(handle, state.revision, 0.0, 50.0), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    STATUS(api.sm_document_bounds(handle, state.revision, &bounds, &strokes, &found), SM_OK);
+    REQUIRE(fabs(bounds.min_y - (before_min_y + 50.0)) < 1e-9);
+    STATUS(api.sm_undo(handle), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    STATUS(api.sm_document_bounds(handle, state.revision, &bounds, &strokes, &found), SM_OK);
+    REQUIRE(fabs(bounds.min_y - before_min_y) < 1e-9);
+    STATUS(api.sm_redo(handle), SM_OK);
+
+    /* 越界与活动笔划拒绝。 */
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    STATUS(api.sm_translate_all(handle, state.revision, 1e9, 0.0), SM_INVALID_ARGUMENT);
+    STATUS(api.sm_begin(handle, 2.0, 0), SM_OK);
+    SmSample active = {0.0, 0.0, 0, 0.0f, 0};
+    STATUS(api.sm_append(handle, &active, 1), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    STATUS(api.sm_translate_all(handle, state.revision, 1.0, 1.0), SM_INVALID_STATE);
+    STATUS(api.sm_cancel(handle), SM_OK);
+    STATUS(api.sm_destroy(handle), SM_OK);
+    return 0;
+}
+
 int main(int argc, char **argv) {
 #ifdef SM_STATIC
     if (argc != 2) { fprintf(stderr, "usage: smoke SNAPSHOT_PATH\n"); return 2; }
@@ -826,6 +885,7 @@ int main(int argc, char **argv) {
     if (brush_smoke()) { return 1; }
     if (viewport_smoke()) { return 1; }
     if (hit_erase_smoke()) { return 1; }
+    if (extent_smoke()) { return 1; }
     if (axes_smoke()) { return 1; }
     if (predict_smoke()) { return 1; }
     if (viewport_ex_smoke()) { return 1; }
