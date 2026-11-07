@@ -7,6 +7,7 @@
 #else
 #define SM_CALL
 #endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -172,6 +173,16 @@ SmStatus SM_CALL sm_viewport_ex_fit(const SmBounds *page_bounds,
     double view_width, double view_height, double angle, double padding,
     SmViewportEx *out_viewport);
 
+/* M10 预测笔迹；模型、上限与宿主责任参 spec/M10.md。预测不是文档内容。 */
+#define SM_FEATURE_PREDICTION UINT64_C(256)
+typedef struct SmPredictionOptions {
+    double horizon_us, max_distance;
+    uint32_t count, reserved;
+    SmBrushOptions brush;
+} SmPredictionOptions;
+SmStatus SM_CALL sm_predict(SmHandle handle, uint64_t revision,
+    const SmPredictionOptions *options,
+    SmBrushPoint *out_points, uint32_t capacity, uint32_t *out_written);
 #ifdef __cplusplus
 }
 #endif

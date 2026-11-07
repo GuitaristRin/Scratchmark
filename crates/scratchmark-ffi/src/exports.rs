@@ -3,8 +3,9 @@ use crate::{
     create, guard, with_doc,
 };
 use scratchmark_core::{
-    Bounds, BrushOptions, BrushPoint, Error, MAX_BATCH, MAX_POINTS, MAX_SNAPSHOT, MAX_STROKES,
-    Point, Sample, ShapeInfo, ShapeKind, State, StrokeInfo, Transform, Viewport, ViewportEx,
+    Bounds, BrushOptions, BrushPoint, Error, MAX_BATCH, MAX_POINTS, MAX_PREDICTION_POINTS,
+    MAX_SNAPSHOT, MAX_STROKES, Point, PredictionOptions, Sample, ShapeInfo, ShapeKind, State,
+    StrokeInfo, Transform, Viewport, ViewportEx,
 };
 
 /// # Safety
@@ -130,6 +131,8 @@ mod brush_tests;
 mod erase_path_tests;
 #[cfg(test)]
 mod hit_tests;
+#[cfg(test)]
+mod predict_tests;
 #[cfg(test)]
 mod select_tests;
 #[cfg(test)]
@@ -627,6 +630,34 @@ pub unsafe extern "C" fn sm_viewport_ex_fit(
         unsafe {
             out_viewport.write(fitted);
         }
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 输出区与选项指针必须满足 spec/M0.md 的指针与容量约束；语义参 spec/M10.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_predict(
+    handle: u64,
+    revision: u64,
+    options: *const PredictionOptions,
+    out_points: *mut BrushPoint,
+    capacity: u32,
+    out_written: *mut u32,
+) -> u32 {
+    guard(|| {
+        required(options)?;
+        required(out_written)?;
+        let options = unsafe { options.read() };
+        let slots = unsafe { output(out_points, capacity, MAX_PREDICTION_POINTS as usize)? };
+        let predicted = with_doc(handle, |d| d.predict(revision, &options))?;
+        unsafe {
+            out_written.write(predicted.len() as u32);
+        }
+        if slots.len() < predicted.len() {
+            return Err(Error::BufferTooSmall);
+        }
+        slots[..predicted.len()].copy_from_slice(&predicted);
         Ok(())
     })
 }
