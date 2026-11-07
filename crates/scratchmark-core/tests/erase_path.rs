@@ -95,13 +95,13 @@ fn cut_points_interpolate_time_pressure_and_flags() {
     d.erase_path(revision, &[at(5.0, 0.0)], 2.0).unwrap();
 
     let end = points_of(&d, 0)[1];
-    assert_eq!(end.flags, 1);
-    close(end.x, 3.0);
+    // M17 起切点同时置 bit1（擦除切点）：压力位 + 切点位 = 3。
+    assert_eq!(end.flags, 3);
     assert!((end.pressure - 0.3).abs() < 1e-6, "{}", end.pressure);
     assert_eq!(end.time_us, 30);
 
     let start = points_of(&d, 1)[0];
-    assert_eq!(start.flags, 1);
+    assert_eq!(start.flags, 3);
     close(start.x, 7.0);
     assert!((start.pressure - 0.7).abs() < 1e-6, "{}", start.pressure);
     assert_eq!(start.time_us, 70);
@@ -116,7 +116,7 @@ fn cut_points_interpolate_time_pressure_and_flags() {
     let revision = mixed.state().revision;
     mixed.erase_path(revision, &[at(5.0, 0.0)], 2.0).unwrap();
     let cut = points_of(&mixed, 0)[1];
-    assert_eq!(cut.flags, 0);
+    assert_eq!(cut.flags, 2);
     assert_eq!(cut.pressure, 0.0);
 }
 

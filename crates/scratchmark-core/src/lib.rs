@@ -52,18 +52,32 @@ pub struct Sample {
     pub flags: u32,
 }
 
+/// 样本 `flags` 位域：bit0 压力，bit1 擦除切点；其余位必须为 0。
+pub const FLAG_PRESSURE: u32 = 1;
+pub const FLAG_CUT_END: u32 = 2;
+const FLAG_MASK: u32 = FLAG_PRESSURE | FLAG_CUT_END;
+
 impl Sample {
+    /// `flags` 是位域：bit0 = 该点带真实压力，bit1 = 该点是擦除切出来的端点。
     pub fn is_valid(&self) -> bool {
+        if self.flags & !FLAG_MASK != 0 {
+            return false;
+        }
         self.x.is_finite()
             && self.y.is_finite()
             && self.x.abs() <= MAX_COORD
             && self.y.abs() <= MAX_COORD
             && self.pressure.is_finite()
-            && match self.flags {
-                0 => self.pressure == 0.0,
-                1 => (0.0..=1.0).contains(&self.pressure),
-                _ => false,
+            && if self.flags & FLAG_PRESSURE != 0 {
+                (0.0..=1.0).contains(&self.pressure)
+            } else {
+                self.pressure == 0.0
             }
+    }
+
+    /// 该点是否由擦除切出（渲染提示，不参与任何几何判定）。
+    pub fn is_cut_end(&self) -> bool {
+        self.flags & FLAG_CUT_END != 0
     }
 }
 

@@ -146,6 +146,10 @@ impl Document {
         }
         let mut last = active.points.last().map(|p| p.time_us);
         for (index, p) in samples.iter().enumerate() {
+            // 写入通道只允许 flags 为 0 / 1：切点标记只能由引擎在擦除时产生（spec/M17.md）。
+            if p.is_cut_end() {
+                return Err(Error::InvalidArgument);
+            }
             let axes_valid = axes.is_none_or(|values| values[index].is_valid());
             if !p.is_valid() || !axes_valid || last.is_some_and(|t| p.time_us < t) {
                 return Err(Error::InvalidArgument);

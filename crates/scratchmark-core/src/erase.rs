@@ -4,7 +4,8 @@
 //! 切点是逐段二次方程的闭式解，不采样、不迭代，保证同一输入得到同一输出。
 use crate::document::{Edit, ReplaceOp};
 use crate::{
-    Document, Error, MAX_COORD, MAX_POINTS, MAX_STROKES, Point, Result, Sample, SampleAxes, Stroke,
+    Document, Error, FLAG_CUT_END, FLAG_PRESSURE, MAX_COORD, MAX_POINTS, MAX_STROKES, Point,
+    Result, Sample, SampleAxes, Stroke,
 };
 
 /// 参数空间（段内 t）的忽略阈值：它以下的覆盖视为相切而非切分，
@@ -287,12 +288,17 @@ fn lerp_sample(a: &Sample, b: &Sample, t: f64) -> Sample {
     } else {
         time.round() as u64
     };
-    // flags=0 要求 pressure=0；只有两端都有真实压力时才插值压力。
-    let (pressure, flags) = if a.flags == 1 && b.flags == 1 {
-        (a.pressure + (b.pressure - a.pressure) * t as f32, 1)
+    // bit0 未置位时 pressure 必须为 0；只有两端都带真实压力时才插值压力。
+    let (pressure, carry) = if a.flags & FLAG_PRESSURE != 0 && b.flags & FLAG_PRESSURE != 0 {
+        (
+            a.pressure + (b.pressure - a.pressure) * t as f32,
+            FLAG_PRESSURE,
+        )
     } else {
         (0.0, 0)
     };
+    // 切出来的端点带 bit1：宿主据此把这一端画成圆缺口（参 spec/M17.md）。
+    let flags = carry | FLAG_CUT_END;
     Sample {
         x: a.x + (b.x - a.x) * t,
         y: a.y + (b.y - a.y) * t,
@@ -301,7 +307,6 @@ fn lerp_sample(a: &Sample, b: &Sample, t: f64) -> Sample {
         flags,
     }
 }
-
 fn distance_to_path_sq(x: f64, y: f64, path: &[EraseSegment]) -> f64 {
     let mut best = f64::INFINITY;
     for segment in path {
