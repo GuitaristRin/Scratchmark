@@ -4,8 +4,8 @@ use crate::{
 };
 use scratchmark_core::{
     Bounds, BrushOptions, BrushPoint, Error, MAX_BATCH, MAX_POINTS, MAX_PREDICTION_POINTS,
-    MAX_SNAPSHOT, MAX_STROKES, Point, PredictionOptions, Sample, ShapeInfo, ShapeKind, State,
-    StrokeInfo, Transform, Viewport, ViewportEx,
+    MAX_SNAPSHOT, MAX_STROKES, Point, PredictionOptions, Sample, SampleAxes, ShapeInfo, ShapeKind,
+    State, StrokeInfo, Transform, Viewport, ViewportEx,
 };
 
 /// # Safety
@@ -125,6 +125,8 @@ pub unsafe extern "C" fn sm_load(handle: u64, data: *const u8, length: u32) -> u
     })
 }
 
+#[cfg(test)]
+mod axes_tests;
 #[cfg(test)]
 mod brush_tests;
 #[cfg(test)]
@@ -658,6 +660,45 @@ pub unsafe extern "C" fn sm_predict(
             return Err(Error::BufferTooSmall);
         }
         slots[..predicted.len()].copy_from_slice(&predicted);
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 样本与轴向缓冲区都必须覆盖 count 个元素且有效；语义参 spec/M11.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_append_axes(
+    handle: u64,
+    samples: *const Sample,
+    axes: *const SampleAxes,
+    count: u32,
+) -> u32 {
+    guard(|| {
+        let points = unsafe { input(samples, count, MAX_BATCH)? };
+        let values = unsafe { input(axes, count, MAX_BATCH)? };
+        with_doc(handle, |d| d.append_with_axes(points, Some(values)))
+    })
+}
+
+/// # Safety
+/// 输出区必须有效、对齐且容量足够；语义参 spec/M11.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_read_axes(
+    handle: u64,
+    revision: u64,
+    index: u32,
+    start: u32,
+    out_axes: *mut SampleAxes,
+    capacity: u32,
+    out_written: *mut u32,
+) -> u32 {
+    guard(|| {
+        required(out_written)?;
+        let slots = unsafe { output(out_axes, capacity, MAX_POINTS)? };
+        let count = with_doc(handle, |d| d.read_axes(revision, index, start, slots))?;
+        unsafe {
+            out_written.write(count as u32);
+        }
         Ok(())
     })
 }

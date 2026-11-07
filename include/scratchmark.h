@@ -173,6 +173,17 @@ SmStatus SM_CALL sm_viewport_ex_fit(const SmBounds *page_bounds,
     double view_width, double view_height, double angle, double padding,
     SmViewportEx *out_viewport);
 
+/* M11 逐点轴向（倾斜 / 朝向）；值域、传播与格式 3 参 spec/M11.md。 */
+#define SM_FEATURE_STYLUS_AXES UINT64_C(512)
+typedef struct SmSampleAxes {
+    float tilt;        /* 弧度，[0, π/2]，0 表示垂直或未提供 */
+    float orientation; /* 弧度，[-π, π] */
+} SmSampleAxes;
+SmStatus SM_CALL sm_append_axes(SmHandle handle, const SmSample *samples,
+    const SmSampleAxes *axes, uint32_t count);
+SmStatus SM_CALL sm_read_axes(SmHandle handle, uint64_t revision, uint32_t index,
+    uint32_t start, SmSampleAxes *out_axes, uint32_t capacity, uint32_t *out_written);
+
 /* M10 预测笔迹；模型、上限与宿主责任参 spec/M10.md。预测不是文档内容。 */
 #define SM_FEATURE_PREDICTION UINT64_C(256)
 typedef struct SmPredictionOptions {
