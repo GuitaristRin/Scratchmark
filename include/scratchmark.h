@@ -173,6 +173,18 @@ SmStatus SM_CALL sm_viewport_ex_fit(const SmBounds *page_bounds,
     double view_width, double view_height, double angle, double padding,
     SmViewportEx *out_viewport);
 
+/* M15 预测的刷新率输入；M10 的结构与签名不变，参 spec/M15.md。 */
+#define SM_FEATURE_PREDICT_REFRESH UINT64_C(8192)
+typedef struct SmPredictionOptionsEx {
+    double horizon_us, max_distance;
+    uint32_t count, reserved;
+    SmBrushOptions brush;
+    double refresh_rate_hz; /* 0 = 未提供；> 0 时有效窗 = min(horizon_us, 1e6/刷新率) */
+} SmPredictionOptionsEx;
+SmStatus SM_CALL sm_predict_ex(SmHandle handle, uint64_t revision,
+    const SmPredictionOptionsEx *options,
+    SmBrushPoint *out_points, uint32_t capacity, uint32_t *out_written);
+
 /* M14 按笔宽的点间距重采样；只读派生，参 spec/M14.md。 */
 #define SM_FEATURE_RESAMPLE UINT64_C(4096)
 typedef struct SmResampleOptions {
