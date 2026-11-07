@@ -275,6 +275,21 @@ public sealed unsafe class Engine : IDisposable
         lock (gate) Check(Native.TranslateAll(Handle, revision, dx, dy));
     }
 
+    /// <summary>带刷新率的预测：刷新率为 0 时与 Predict 逐点一致。</summary>
+    public BrushPoint[] PredictEx(ulong revision, PredictionOptionsEx options)
+    {
+        lock (gate)
+        {
+            Status probe = Native.PredictEx(Handle, revision, options, null, 0, out uint required);
+            if (probe != Status.Ok && probe != Status.BufferTooSmall) Check(probe);
+            if (required == 0) return [];
+            BrushPoint[] buffer = new BrushPoint[required];
+            fixed (BrushPoint* points = buffer)
+                Check(Native.PredictEx(Handle, revision, options, points, required, out _));
+            return buffer;
+        }
+    }
+
     /// <summary>形状规整：preview 为真时只测量残差，不写文档、不占历史。</summary>
     public ShapeInfo RegularizeStroke(ulong revision, uint index, ShapeKind kind, bool preview = false)
     {

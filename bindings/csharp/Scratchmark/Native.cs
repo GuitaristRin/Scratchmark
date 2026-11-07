@@ -147,4 +147,7 @@ internal static unsafe class Native
     [DllImport(Library, EntryPoint = "sm_resample_stroke", CallingConvention = CallingConvention.Cdecl)]
     internal static extern Status ResampleStroke(ulong handle, ulong revision, uint index,
         in ResampleOptions options, BrushPoint* points, uint capacity, out uint written);
+    [DllImport(Library, EntryPoint = "sm_predict_ex", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status PredictEx(ulong handle, ulong revision, in PredictionOptionsEx options,
+        BrushPoint* points, uint capacity, out uint written);
 }

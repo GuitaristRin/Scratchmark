@@ -56,6 +56,7 @@ internal static unsafe partial class Program
         PageExtent(args[0]);
         BrushPreset(args[0]);
         ResampleCheck(args[0]);
+        PredictionRefresh(args[0]);
         Console.WriteLine($"C# smoke: {checks} checks passed");
         return 0;
     }

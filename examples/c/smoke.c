@@ -63,6 +63,7 @@ _Static_assert(sizeof(SmBounds) == 32, "SmBounds ABI");
     X(SmStatus, sm_brush_preset, (uint32_t, uint32_t, double *)) \
     X(SmStatus, sm_brush_preset_width, (uint32_t, uint32_t, double, double *)) \
     X(SmStatus, sm_resample_stroke, (SmHandle, uint64_t, uint32_t, const SmResampleOptions *, SmBrushPoint *, uint32_t, uint32_t *)) \
+    X(SmStatus, sm_predict_ex, (SmHandle, uint64_t, const SmPredictionOptionsEx *, SmBrushPoint *, uint32_t, uint32_t *)) \
     X(SmStatus, sm_page_to_viewport, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_viewport_to_page, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_width_page_to_viewport, (const SmViewport *, double, double *)) \
@@ -874,6 +875,49 @@ static int resample_smoke(void) {
     return 0;
 }
 
+/* 预测刷新率：刷新率 0 与 M10 同参一致、240 Hz 压缩时间窗、非法值拒绝。 */
+static int predict_ex_smoke(void) {
+    REQUIRE((api.sm_features() & SM_FEATURE_PREDICT_REFRESH) != 0);
+    SmHandle handle = 0;
+    STATUS(api.sm_create(&handle), SM_OK);
+    SmSample moving[3] = {{0.0, 0.0, 0, 0.0f, 0}, {50.0, 0.0, 500, 0.0f, 0}, {100.0, 0.0, 1000, 0.0f, 0}};
+    STATUS(api.sm_begin(handle, 2.0, 0x11223344), SM_OK);
+    STATUS(api.sm_append(handle, moving, 3), SM_OK);
+    SmState state;
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+
+    SmPredictionOptions base = {1000.0, 10000.0, 4, 0, {1.0, 1.0, 0, 0}};
+    SmPredictionOptionsEx ex_zero = {1000.0, 10000.0, 4, 0, {1.0, 1.0, 0, 0}, 0.0};
+    SmBrushPoint legacy[4], extended[4];
+    uint32_t written_a = 0, written_b = 0;
+    STATUS(api.sm_predict(handle, state.revision, &base, legacy, 4, &written_a), SM_OK);
+    STATUS(api.sm_predict_ex(handle, state.revision, &ex_zero, extended, 4, &written_b), SM_OK);
+    REQUIRE(written_a == written_b && written_a == 4);
+    for (uint32_t i = 0; i < 4; i++) {
+        REQUIRE(fabs(legacy[i].x - extended[i].x) < 1e-9);
+        REQUIRE(fabs(legacy[i].width - extended[i].width) < 1e-9);
+    }
+
+    /* 16 ms 窗与 240 Hz 一帧对比。 */
+    SmPredictionOptionsEx ex_long = {16000.0, 10000.0, 4, 0, {1.0, 1.0, 0, 0}, 0.0};
+    SmPredictionOptionsEx ex_frame = {16000.0, 10000.0, 4, 0, {1.0, 1.0, 0, 0}, 240.0};
+    STATUS(api.sm_predict_ex(handle, state.revision, &ex_long, legacy, 4, &written_a), SM_OK);
+    STATUS(api.sm_predict_ex(handle, state.revision, &ex_frame, extended, 4, &written_b), SM_OK);
+    REQUIRE(fabs(legacy[3].x - 1700.0) < 1e-6);
+    REQUIRE(fabs(extended[3].x - 516.6666667) < 1e-6);
+    REQUIRE(extended[3].x < legacy[3].x);
+
+    /* 非法刷新率。 */
+    SmPredictionOptionsEx bad = {16000.0, 10000.0, 4, 0, {1.0, 1.0, 0, 0}, -1.0};
+    STATUS(api.sm_predict_ex(handle, state.revision, &bad, extended, 4, &written_b), SM_INVALID_ARGUMENT);
+    SmPredictionOptionsEx too_fast = {16000.0, 10000.0, 4, 0, {1.0, 1.0, 0, 0}, 10001.0};
+    STATUS(api.sm_predict_ex(handle, state.revision, &too_fast, extended, 4, &written_b), SM_INVALID_ARGUMENT);
+    STATUS(api.sm_predict_ex(handle, state.revision - 1, &ex_frame, extended, 4, &written_b), SM_STALE_REVISION);
+    STATUS(api.sm_cancel(handle), SM_OK);
+    STATUS(api.sm_destroy(handle), SM_OK);
+    return 0;
+}
+
 int main(int argc, char **argv) {
 #ifdef SM_STATIC
     if (argc != 2) { fprintf(stderr, "usage: smoke SNAPSHOT_PATH\n"); return 2; }
@@ -957,6 +1001,7 @@ int main(int argc, char **argv) {
     if (brush_smoke()) { return 1; }
     if (viewport_smoke()) { return 1; }
     if (hit_erase_smoke()) { return 1; }
+    if (predict_ex_smoke()) { return 1; }
     if (resample_smoke()) { return 1; }
     if (preset_smoke()) { return 1; }
     if (extent_smoke()) { return 1; }

@@ -247,3 +247,12 @@ public struct ResampleOptions
     public BrushOptions Brush;
     public uint Reserved;
 }
+/* M15 带刷新率的预测选项：RefreshRateHz = 0 表示未提供，行为与 PredictionOptions 一致。 */
+[StructLayout(LayoutKind.Sequential)]
+public struct PredictionOptionsEx
+{
+    public double HorizonUs, MaxDistance;
+    public uint Count, Reserved;
+    public BrushOptions Brush;
+    public double RefreshRateHz;
+}
