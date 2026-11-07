@@ -126,7 +126,9 @@ fn zoom_and_fit_are_exposed_and_atomic() {
     // 0°：960/800 = 1.2，760/600 ≈ 1.267 → 取 1.2。
     close(fitted.scale, 1.2);
     // 页面中心映射到视口中心。
-    let center = fitted.page_to_viewport(Point { x: 400.0, y: 300.0 }).unwrap();
+    let center = fitted
+        .page_to_viewport(Point { x: 400.0, y: 300.0 })
+        .unwrap();
     close(center.x, 500.0);
     close(center.y, 400.0);
 
