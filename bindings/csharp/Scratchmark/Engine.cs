@@ -205,6 +205,21 @@ public sealed unsafe class Engine : IDisposable
         catch { }
     }
 
+    /// <summary>预测笔迹：只读外推活动笔划的尾迹，不写文档、不改 revision。</summary>
+    public BrushPoint[] Predict(ulong revision, PredictionOptions options)
+    {
+        lock (gate)
+        {
+            Status probe = Native.Predict(Handle, revision, options, null, 0, out uint required);
+            if (probe != Status.Ok && probe != Status.BufferTooSmall) Check(probe);
+            if (required == 0) return [];
+            BrushPoint[] buffer = new BrushPoint[required];
+            fixed (BrushPoint* points = buffer)
+                Check(Native.Predict(Handle, revision, options, points, required, out _));
+            return buffer;
+        }
+    }
+
     /// <summary>形状规整：preview 为真时只测量残差，不写文档、不占历史。</summary>
     public ShapeInfo RegularizeStroke(ulong revision, uint index, ShapeKind kind, bool preview = false)
     {

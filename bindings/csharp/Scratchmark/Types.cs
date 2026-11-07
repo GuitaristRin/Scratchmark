@@ -199,3 +199,11 @@ public struct ViewportEx
         return output;
     }
 }
+/* M10 预测笔迹：只读外推，复用 M2 笔刷配置，输出沿用 BrushPoint。 */
+[StructLayout(LayoutKind.Sequential)]
+public struct PredictionOptions
+{
+    public double HorizonUs, MaxDistance;
+    public uint Count, Reserved;
+    public BrushOptions Brush;
+}
