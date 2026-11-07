@@ -4,6 +4,7 @@ mod codec;
 mod document;
 mod erase;
 mod hit;
+mod predict;
 mod select;
 mod shape;
 mod transform;
@@ -11,6 +12,7 @@ mod viewport;
 
 pub use brush::{BrushOptions, BrushPoint};
 pub use document::Document;
+pub use predict::{MAX_PREDICTION_POINTS, PredictionOptions};
 pub use shape::{ShapeInfo, ShapeKind};
 pub use transform::Transform;
 pub use viewport::{Bounds, Point, Viewport, ViewportEx};
