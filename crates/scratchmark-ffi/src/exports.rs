@@ -3,9 +3,9 @@ use crate::{
     create, guard, with_doc,
 };
 use scratchmark_core::{
-    Bounds, BrushOptions, BrushPoint, Error, MAX_BATCH, MAX_POINTS, MAX_PREDICTION_POINTS,
-    MAX_SNAPSHOT, MAX_STROKES, Point, PredictionOptions, Sample, SampleAxes, ShapeInfo, ShapeKind,
-    State, StrokeInfo, Transform, Viewport, ViewportEx,
+    Bounds, BrushKind, BrushOptions, BrushPoint, Error, MAX_BATCH, MAX_POINTS,
+    MAX_PREDICTION_POINTS, MAX_SNAPSHOT, MAX_STROKES, Point, PredictionOptions, Sample, SampleAxes,
+    ShapeInfo, ShapeKind, State, StrokeInfo, Transform, Viewport, ViewportEx,
 };
 
 /// # Safety
@@ -137,6 +137,8 @@ mod extent_tests;
 mod hit_tests;
 #[cfg(test)]
 mod predict_tests;
+#[cfg(test)]
+mod preset_tests;
 #[cfg(test)]
 mod select_tests;
 #[cfg(test)]
@@ -744,4 +746,37 @@ pub unsafe extern "C" fn sm_document_bounds(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sm_translate_all(handle: u64, revision: u64, dx: f64, dy: f64) -> u32 {
     guard(|| with_doc(handle, |d| d.translate_all(revision, dx, dy)))
+}
+
+/// # Safety
+/// 输出指针必须有效且对齐；语义参 spec/M13.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_brush_preset(kind: u32, level: u32, out_ratio: *mut f64) -> u32 {
+    guard(|| {
+        required(out_ratio)?;
+        let ratio = BrushKind::from_u32(kind)?.ratio(level)?;
+        unsafe {
+            out_ratio.write(ratio);
+        }
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 输出指针必须有效且对齐；语义参 spec/M13.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_brush_preset_width(
+    kind: u32,
+    level: u32,
+    max_width: f64,
+    out_width: *mut f64,
+) -> u32 {
+    guard(|| {
+        required(out_width)?;
+        let width = BrushKind::from_u32(kind)?.width(level, max_width)?;
+        unsafe {
+            out_width.write(width);
+        }
+        Ok(())
+    })
 }

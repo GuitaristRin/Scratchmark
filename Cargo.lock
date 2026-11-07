@@ -4,11 +4,11 @@ version = 4
 
 [[package]]
 name = "scratchmark-core"
-version = "0.12.0"
+version = "0.13.0"
 
 [[package]]
 name = "scratchmark-ffi"
-version = "0.12.0"
+version = "0.13.0"
 dependencies = [
  "scratchmark-core",
 ]

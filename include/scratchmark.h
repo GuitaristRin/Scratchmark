@@ -173,6 +173,17 @@ SmStatus SM_CALL sm_viewport_ex_fit(const SmBounds *page_bounds,
     double view_width, double view_height, double angle, double padding,
     SmViewportEx *out_viewport);
 
+/* M13 笔型尺寸预置；数值是引擎自有的默认分档，参 spec/M13.md。 */
+#define SM_FEATURE_BRUSH_PRESET UINT64_C(2048)
+#define SM_BRUSH_LEVELS 5
+enum {
+    SM_BRUSH_PENCIL = 1, SM_BRUSH_MARKER = 2, SM_BRUSH_BALLPEN = 3,
+    SM_BRUSH_PEN = 4, SM_BRUSH_ERASER = 5
+};
+SmStatus SM_CALL sm_brush_preset(uint32_t kind, uint32_t level, double *out_ratio);
+SmStatus SM_CALL sm_brush_preset_width(uint32_t kind, uint32_t level,
+    double max_width, double *out_width);
+
 /* M12 文档边界与整份平移；页面尺寸归属参 spec/M12.md。 */
 #define SM_FEATURE_PAGE_EXTENT UINT64_C(1024)
 SmStatus SM_CALL sm_document_bounds(SmHandle handle, uint64_t revision,
