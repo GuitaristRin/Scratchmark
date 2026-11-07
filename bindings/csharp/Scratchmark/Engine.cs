@@ -204,4 +204,14 @@ public sealed unsafe class Engine : IDisposable
         try { lock (gate) Release(); }
         catch { }
     }
+
+    /// <summary>形状规整：preview 为真时只测量残差，不写文档、不占历史。</summary>
+    public ShapeInfo RegularizeStroke(ulong revision, uint index, ShapeKind kind, bool preview = false)
+    {
+        lock (gate)
+        {
+            Check(Native.RegularizeStroke(Handle, revision, index, (uint)kind, preview ? 1u : 0u, out ShapeInfo info));
+            return info;
+        }
+    }
 }

@@ -127,3 +127,15 @@ public struct Transform
         return new Transform { M00 = cos, M01 = -sin, M10 = sin, M11 = cos };
     }
 }
+/* M8 形状规整：种类显式指定，error 是残差（页面单位），是否采纳由宿主决定。 */
+public enum ShapeKind : uint
+{
+    Line = 1, Rectangle = 2, Circle = 3, Arrow = 4
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct ShapeInfo
+{
+    public uint Kind, StrokeCount, PointCount, Reserved;
+    public double Error;
+}
