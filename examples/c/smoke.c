@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #if !defined(SM_STATIC) && defined(_WIN32)
 #include <windows.h>
 #elif !defined(SM_STATIC)
@@ -65,6 +66,8 @@ _Static_assert(sizeof(SmBounds) == 32, "SmBounds ABI");
     X(SmStatus, sm_resample_stroke, (SmHandle, uint64_t, uint32_t, const SmResampleOptions *, SmBrushPoint *, uint32_t, uint32_t *)) \
     X(SmStatus, sm_predict_ex, (SmHandle, uint64_t, const SmPredictionOptionsEx *, SmBrushPoint *, uint32_t, uint32_t *)) \
     X(SmStatus, sm_cut_strokes, (SmHandle, uint64_t, const uint32_t *, uint32_t, uint8_t *, uint32_t, uint32_t *)) \
+    X(uint8_t *, sm_alloc, (uint32_t)) \
+    X(void, sm_free, (uint8_t *, uint32_t)) \
     X(SmStatus, sm_page_to_viewport, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_viewport_to_page, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_width_page_to_viewport, (const SmViewport *, double, double *)) \
@@ -1022,6 +1025,41 @@ static int cut_mark_smoke(void) {
     return 0;
 }
 
+/* 宿主内存分配：对齐、越界、释放容错，并用它跑一次 sm_save。 */
+static int alloc_smoke(void) {
+    REQUIRE((api.sm_features() & SM_FEATURE_HOST_ALLOC) != 0);
+
+    uint8_t *block = api.sm_alloc(64);
+    REQUIRE(block != NULL);
+    REQUIRE(((uintptr_t)block % 8) == 0);
+    memset(block, 0xAB, 64);
+    REQUIRE(block[0] == 0xAB && block[63] == 0xAB);
+    api.sm_free(block, 64);
+
+    /* 非法尺寸返回 NULL；释放 NULL / 尺寸 0 不崩。 */
+    REQUIRE(api.sm_alloc(0) == NULL);
+    REQUIRE(api.sm_alloc(64u * 1024u * 1024u + 1u) == NULL);
+    api.sm_free(NULL, 16);
+
+    /* 真用途：把快照写进宿主申请的缓冲区。 */
+    SmHandle handle = 0;
+    STATUS(api.sm_create(&handle), SM_OK);
+    SmSample points[2] = {{0.0, 0.0, 0, 0.0f, 0}, {10.0, 0.0, 10, 0.0f, 0}};
+    STATUS(api.sm_begin(handle, 2.0, 0x11223344), SM_OK);
+    STATUS(api.sm_append(handle, points, 2), SM_OK);
+    STATUS(api.sm_finish(handle), SM_OK);
+
+    uint32_t required = 0;
+    STATUS(api.sm_save(handle, NULL, 0, &required), SM_BUFFER_TOO_SMALL);
+    uint8_t *snapshot = api.sm_alloc(required);
+    REQUIRE(snapshot != NULL);
+    STATUS(api.sm_save(handle, snapshot, required, &required), SM_OK);
+    REQUIRE(memcmp(snapshot, "SCRATCH", 7) == 0);
+    api.sm_free(snapshot, required);
+    STATUS(api.sm_destroy(handle), SM_OK);
+    return 0;
+}
+
 int main(int argc, char **argv) {
 #ifdef SM_STATIC
     if (argc != 2) { fprintf(stderr, "usage: smoke SNAPSHOT_PATH\n"); return 2; }
@@ -1105,6 +1143,7 @@ int main(int argc, char **argv) {
     if (brush_smoke()) { return 1; }
     if (viewport_smoke()) { return 1; }
     if (hit_erase_smoke()) { return 1; }
+    if (alloc_smoke()) { return 1; }
     if (cut_mark_smoke()) { return 1; }
     if (cut_smoke()) { return 1; }
     if (predict_ex_smoke()) { return 1; }

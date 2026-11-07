@@ -2,7 +2,7 @@
 
 可嵌入的手写与页面批注模块。
 
-Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔迹与批注。当前 SDK 0.18.0 提供实验核心、C ABI 与 .NET 9 C# 适配；能力与验证边界见 [当前状态](docs/STATE_2026-11-07.md)。
+Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔迹与批注。当前 SDK 0.18.0 提供实验核心、C ABI 1（52 个导出）、.NET 9 C# 适配、Android JNI 与 Kotlin 封装、WebAssembly 与 Linux 产物。**先看 [文档地图](docs/README.md)**；能力与验证边界见 [平台与封装库](docs/PLATFORMS.md) 与 [验证矩阵](docs/VERIFICATION.md)。
 
 ## 当前范围
 
@@ -37,11 +37,11 @@ cargo clippy --workspace --all-targets -- -D warnings
 .\tools\build-sdk.ps1
 ```
 
-Windows SDK 内附 `verify-sdk.ps1`，可在仅有包内容与 GCC 的目录验证动态加载及静态链接，不要求检出引擎源码。Linux x86_64 GNU 使用 `tools/build-sdk.sh` 与 `tools/verify-sdk.sh`，动态与静态接入、导出清单与快照一致性已在本机独立宿主验收；Android 尚未验收。接口与快照均为实验版，不代表正式兼容承诺。
+Windows SDK 内附 `verify-sdk.ps1`，可在仅有包内容与 GCC 的目录验证动态加载及静态链接（C 677 项 ×2、C# 547 项），不要求检出引擎源码。Linux x86_64 用 `tools/build-sdk.sh` 与 `tools/verify-sdk.sh`；Android 与 WASM 的产物、构建脚本与验证等级见 [PLATFORMS.md](docs/PLATFORMS.md)。接口与快照均为实验版，不代表正式兼容承诺。
 
 加上 `-IncludeCSharp` 可用已有 .NET 9 SDK 离线构建并运行 C# 宿主，验证共享夹具、编辑与恢复、布局、错误路径和释放时序；调用契约见 [C# 实验规格](spec/M1-CSHARP.md)。Android 的具体缺口见 [前置核查](docs/ANDROID_PREREQUISITES.md)。
 
-PezMax-One 重构可参考 [宿主接入说明](docs/HOST_INTEGRATION.md)，其中明确页面坐标、输入生命周期、笔刷配置保存责任及未验证平台。Android 当前暂缓，NDK 已按用户提供的包部署。
+PezMax-One 重构可参考 [宿主接入说明](docs/HOST_INTEGRATION.md)：页面坐标、输入生命周期、笔刷配置与页面尺寸的责任划分，以及未验证平台清单。Android 已交付三 ABI 的 `.so`、JNI 层与 Kotlin 封装，但**运行时未验证**（本机无设备/模拟器）。
 
 ## 本地参考资料
 
@@ -51,52 +51,17 @@ Git 远端使用 SSH：`git@github.com:GuitaristRin/Scratchmark.git`。
 
 ## 文档
 
-- [立项任务卡](docs/PROJECT_BRIEF.md)
-- [产品与架构方向裁定 - Canon](docs/DECISIONS_2026-11-03.md)
-- [M0 实施任务卡 - Canon](docs/IMPLEMENTATION_M0.md)
-- [M1 宿主适配任务卡 - Canon](docs/IMPLEMENTATION_M1.md)
-- [M2 平滑与压力笔刷任务卡 - Canon](docs/IMPLEMENTATION_M2.md)
-- [M2 派生几何规格 - Canon](spec/M2.md)
-- [M3 页面标识与视口变换任务卡 - Canon](docs/IMPLEMENTATION_M3.md)
-- [M3 页面标识与视口规格 - Canon](spec/M3.md)
-- [M4 命中测试与整笔擦除任务卡 - Canon](docs/IMPLEMENTATION_M4.md)
-- [M4 命中与擦除规格 - Canon](spec/M4.md)
-- [M5 局部擦除任务卡 - Canon](docs/IMPLEMENTATION_M5.md)
-- [M5 局部擦除规格 - Canon](spec/M5.md)
-- [M6 选择与批量删除任务卡 - Canon](docs/IMPLEMENTATION_M6.md)
-- [M6 选择与批量删除规格 - Canon](spec/M6.md)
-- [M7 选区变换任务卡 - Canon](docs/IMPLEMENTATION_M7.md)
-- [M7 选区变换与复制粘贴规格 - Canon](spec/M7.md)
-- [M8 形状规整任务卡 - Canon](docs/IMPLEMENTATION_M8.md)
-- [M8 形状规整规格 - Canon](spec/M8.md)
-- [M9 视口旋转任务卡 - Canon](docs/IMPLEMENTATION_M9.md)
-- [M9 视口旋转规格 - Canon](spec/M9.md)
-- [M10 预测笔迹任务卡 - Canon](docs/IMPLEMENTATION_M10.md)
-- [M10 预测笔迹规格 - Canon](spec/M10.md)
-- [M11 逐点轴向任务卡 - Canon](docs/IMPLEMENTATION_M11.md)
-- [M11 逐点轴向规格 - Canon](spec/M11.md)
-- [M12 文档边界与整份平移任务卡 - Canon](docs/IMPLEMENTATION_M12.md)
-- [M12 文档边界规格 - Canon](spec/M12.md)
-- [M13 笔型尺寸预置任务卡 - Canon](docs/IMPLEMENTATION_M13.md)
-- [M13 笔型尺寸预置规格 - Canon](spec/M13.md)
-- [M14 点间距重采样任务卡 - Canon](docs/IMPLEMENTATION_M14.md)
-- [M14 点间距重采样规格 - Canon](spec/M14.md)
-- [M15 预测刷新率任务卡 - Canon](docs/IMPLEMENTATION_M15.md)
-- [M15 预测刷新率规格 - Canon](spec/M15.md)
-- [M16 原子剪切任务卡 - Canon](docs/IMPLEMENTATION_M16.md)
-- [M16 原子剪切规格 - Canon](spec/M16.md)
-- [M17 擦除切点标记任务卡 - Canon](docs/IMPLEMENTATION_M17.md)
-- [M17 擦除切点标记规格 - Canon](spec/M17.md)
-- [M18 宿主内存分配任务卡 - Canon](docs/IMPLEMENTATION_M18.md)
-- [M18 宿主内存分配规格 - Canon](spec/M18.md)
-- [平台与封装库](docs/PLATFORMS.md)
-- [M0 实验规格 - Canon](spec/M0.md)
-- [C 接口声明](include/scratchmark.h)
-- [SDK 使用说明](docs/SDK_README.md)
-- [当前状态](docs/STATE_2026-11-07.md)
-- [主流移动便签样本探索](docs/REFERENCE_FINDINGS.md)
-- [多输入与语言选型提案 - Draft](docs/PROPOSALS_2026-11-03.md)
-- [输入与宿主约束核查 - Draft](docs/research/2026-11-03-input-and-host-evidence.md)
-- [协作约定](AGENTS.md)
+入口是 [文档地图](docs/README.md)，按"规格 / 裁定 / 怎么干活 / 现在到哪了"四类组织。常用入口：
+
+- [文档地图](docs/README.md) —— 阅读顺序与全部分类
+- [架构](docs/ARCHITECTURE.md) —— 分层、数据模型、不变量、快照格式、能力位、错误码
+- [开发手册](docs/DEVELOPMENT.md) —— 环境、四条门、四平台脚本、提交约定、已踩过的坑
+- [验证矩阵](docs/VERIFICATION.md) —— 每层跑过多少项、什么没验证、怎么补
+- [平台与封装库](docs/PLATFORMS.md) —— Windows / WASM / Android / Linux / .NET 的产物与验证等级
+- [接口索引](docs/API.md) + [C 接口声明](include/scratchmark.h) —— 52 个导出的分组与共性约定
+- [SDK 使用说明](docs/SDK_README.md)、[宿主接入说明](docs/HOST_INTEGRATION.md)
+- [产品与架构方向裁定](docs/DECISIONS_2026-11-03.md)（`D1`…`D25`，只追加）、[立项任务卡](docs/PROJECT_BRIEF.md)
+- 能力规格 `spec/M0.md` … `spec/M19.md`；当轮任务卡 `docs/IMPLEMENTATION_M<n>.md`
+- [当前状态时间线](docs/README.md#四现在到哪了时间线)
 
 按已确认的纯引擎及 Rust 核心 / 原生适配方向继续设计；具体依赖、显示后端、文件格式与对外接口仍待研究后确定。仓库当前计划保持私有，待研发充分后再评估公开。

@@ -64,12 +64,20 @@ fi
 
 echo "== exports =="
 # 与 examples/c/smoke.c 的 API_LIST 保持一致；新增导出时同步此清单。
-expected_exports=(sm_abi_version sm_features sm_create sm_destroy sm_begin sm_append
-    sm_finish sm_cancel sm_undo sm_redo sm_get_state sm_get_stroke sm_read_points
-    sm_save sm_load sm_read_brush_points
-    sm_get_page_id sm_set_page_id sm_hit_test sm_erase_stroke sm_erase_path sm_lasso_hits sm_erase_indices sm_clear sm_transform_strokes sm_copy_strokes sm_paste sm_regularize_stroke sm_page_to_viewport_ex sm_viewport_to_page_ex sm_width_page_to_viewport_ex sm_width_viewport_to_page_ex sm_bounds_page_to_viewport_ex sm_viewport_ex_zoom_at sm_viewport_ex_fit sm_predict sm_append_axes sm_read_axes sm_document_bounds sm_translate_all sm_brush_preset sm_brush_preset_width sm_resample_stroke sm_predict_ex sm_cut_strokes
-    sm_page_to_viewport sm_viewport_to_page
-    sm_width_page_to_viewport sm_width_viewport_to_page sm_bounds_page_to_viewport)
+expected_exports=(
+    sm_abi_version sm_alloc sm_append sm_append_axes
+    sm_begin sm_bounds_page_to_viewport sm_bounds_page_to_viewport_ex sm_brush_preset
+    sm_brush_preset_width sm_cancel sm_clear sm_copy_strokes
+    sm_create sm_cut_strokes sm_destroy sm_document_bounds
+    sm_erase_indices sm_erase_path sm_erase_stroke sm_features
+    sm_finish sm_free sm_get_page_id sm_get_state
+    sm_get_stroke sm_hit_test sm_lasso_hits sm_load
+    sm_page_to_viewport sm_page_to_viewport_ex sm_paste sm_predict
+    sm_predict_ex sm_read_axes sm_read_brush_points sm_read_points
+    sm_redo sm_regularize_stroke sm_resample_stroke sm_save
+    sm_set_page_id sm_transform_strokes sm_translate_all sm_undo
+    sm_viewport_ex_fit sm_viewport_ex_zoom_at sm_viewport_to_page sm_viewport_to_page_ex
+    sm_width_page_to_viewport sm_width_page_to_viewport_ex sm_width_viewport_to_page sm_width_viewport_to_page_ex)
 nm -D "$sdk/bin/libscratchmark.so" | tee "$work/exports.txt"
 for symbol in "${expected_exports[@]}"; do
     if ! grep -qE " T ${symbol}$" "$work/exports.txt"; then
