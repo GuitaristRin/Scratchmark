@@ -2,7 +2,7 @@
 
 可嵌入的手写与页面批注模块。
 
-Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔迹与批注。当前 SDK 0.13.0 提供实验核心、C ABI 与 .NET 9 C# 适配；能力与验证边界见 [当前状态](docs/STATE_2026-11-07.md)。
+Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔迹与批注。当前 SDK 0.14.0 提供实验核心、C ABI 与 .NET 9 C# 适配；能力与验证边界见 [当前状态](docs/STATE_2026-11-07.md)。
 
 ## 当前范围
 
@@ -20,6 +20,7 @@ Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔�
 - 逐点轴向：倾斜与朝向随样本保存、分段读取，并随切分 / 变换 / 复制粘贴传播；快照格式 3 承载它。
 - 文档边界与整份平移：内容并集边界（含笔宽）与一次调用一个撤销条目的整体位移；页面尺寸仍由宿主保留。
 - 笔型尺寸预置：五笔型 × 五档位的归一化比例与宽度换算，供宿主统一默认手感。
+- 点间距重采样：按「笔宽 × 比例」沿中心线等距取点，附带逐点笔宽，末点保留原始末点。
 - Windows 原生动态 / 静态与 .NET 9 C# 实验适配；Linux x86_64 GNU 动态 / 静态接入与 SDK 独立验收已复跑。设备前端与手感未验证。
 
 PezMax-One 的课本／试卷批注是明确的后续接入场景。二进制 SDK 接入不必依赖 Git submodule，源码依赖作为另一种可选方式；本阶段不修改 PezMax-One，也不建立 submodule。
@@ -74,6 +75,8 @@ Git 远端使用 SSH：`git@github.com:GuitaristRin/Scratchmark.git`。
 - [M12 文档边界规格 - Canon](spec/M12.md)
 - [M13 笔型尺寸预置任务卡 - Canon](docs/IMPLEMENTATION_M13.md)
 - [M13 笔型尺寸预置规格 - Canon](spec/M13.md)
+- [M14 点间距重采样任务卡 - Canon](docs/IMPLEMENTATION_M14.md)
+- [M14 点间距重采样规格 - Canon](spec/M14.md)
 - [M0 实验规格 - Canon](spec/M0.md)
 - [C 接口声明](include/scratchmark.h)
 - [SDK 使用说明](docs/SDK_README.md)

@@ -144,4 +144,7 @@ internal static unsafe class Native
     internal static extern Status BrushPreset(uint kind, uint level, out double ratio);
     [DllImport(Library, EntryPoint = "sm_brush_preset_width", CallingConvention = CallingConvention.Cdecl)]
     internal static extern Status BrushPresetWidth(uint kind, uint level, double maxWidth, out double width);
+    [DllImport(Library, EntryPoint = "sm_resample_stroke", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status ResampleStroke(ulong handle, ulong revision, uint index,
+        in ResampleOptions options, BrushPoint* points, uint capacity, out uint written);
 }

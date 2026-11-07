@@ -239,3 +239,11 @@ public static class BrushPresets
         return width;
     }
 }
+/* M14 点间距重采样：间距 = 笔宽 × 比例；输出沿用 BrushPoint。 */
+[StructLayout(LayoutKind.Sequential)]
+public struct ResampleOptions
+{
+    public double SpacingRatio;
+    public BrushOptions Brush;
+    public uint Reserved;
+}

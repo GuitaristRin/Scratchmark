@@ -62,6 +62,7 @@ _Static_assert(sizeof(SmBounds) == 32, "SmBounds ABI");
     X(SmStatus, sm_translate_all, (SmHandle, uint64_t, double, double)) \
     X(SmStatus, sm_brush_preset, (uint32_t, uint32_t, double *)) \
     X(SmStatus, sm_brush_preset_width, (uint32_t, uint32_t, double, double *)) \
+    X(SmStatus, sm_resample_stroke, (SmHandle, uint64_t, uint32_t, const SmResampleOptions *, SmBrushPoint *, uint32_t, uint32_t *)) \
     X(SmStatus, sm_page_to_viewport, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_viewport_to_page, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_width_page_to_viewport, (const SmViewport *, double, double *)) \
@@ -836,6 +837,43 @@ static int preset_smoke(void) {
     return 0;
 }
 
+/* 点间距重采样：数量、位置、末尾点、容量不足与非法参数。 */
+static int resample_smoke(void) {
+    REQUIRE((api.sm_features() & SM_FEATURE_RESAMPLE) != 0);
+    SmHandle handle = 0;
+    STATUS(api.sm_create(&handle), SM_OK);
+    SmSample line[2] = {{0.0, 0.0, 0, 0.0f, 0}, {10.0, 0.0, 100, 0.0f, 0}};
+    STATUS(api.sm_begin(handle, 2.0, 0x11223344), SM_OK);
+    STATUS(api.sm_append(handle, line, 2), SM_OK);
+    STATUS(api.sm_finish(handle), SM_OK);
+    SmState state;
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+
+    SmResampleOptions opts = {0.5, {1.0, 1.0, 0, 0}, 0};
+    uint32_t written = 99;
+    STATUS(api.sm_resample_stroke(handle, state.revision, 0, &opts, NULL, 0, &written), SM_BUFFER_TOO_SMALL);
+    REQUIRE(written == 11);
+
+    SmBrushPoint points[11];
+    STATUS(api.sm_resample_stroke(handle, state.revision, 0, &opts, points, 11, &written), SM_OK);
+    REQUIRE(written == 11);
+    REQUIRE(fabs(points[0].x) < 1e-9 && fabs(points[5].x - 5.0) < 1e-9 && fabs(points[10].x - 10.0) < 1e-9);
+    REQUIRE(fabs(points[10].width - 2.0) < 1e-9);
+
+    /* 容量不足不写数组。 */
+    points[0].x = 77.0;
+    STATUS(api.sm_resample_stroke(handle, state.revision, 0, &opts, points, 3, &written), SM_BUFFER_TOO_SMALL);
+    REQUIRE(written == 11 && points[0].x == 77.0);
+
+    /* 非法参数。 */
+    SmResampleOptions bad = {0.0, {1.0, 1.0, 0, 0}, 0};
+    STATUS(api.sm_resample_stroke(handle, state.revision, 0, &bad, points, 11, &written), SM_INVALID_ARGUMENT);
+    STATUS(api.sm_resample_stroke(handle, state.revision - 1, 0, &opts, points, 11, &written), SM_STALE_REVISION);
+    STATUS(api.sm_resample_stroke(handle, state.revision, 9, &opts, points, 11, &written), SM_INVALID_ARGUMENT);
+    STATUS(api.sm_destroy(handle), SM_OK);
+    return 0;
+}
+
 int main(int argc, char **argv) {
 #ifdef SM_STATIC
     if (argc != 2) { fprintf(stderr, "usage: smoke SNAPSHOT_PATH\n"); return 2; }
@@ -919,6 +957,7 @@ int main(int argc, char **argv) {
     if (brush_smoke()) { return 1; }
     if (viewport_smoke()) { return 1; }
     if (hit_erase_smoke()) { return 1; }
+    if (resample_smoke()) { return 1; }
     if (preset_smoke()) { return 1; }
     if (extent_smoke()) { return 1; }
     if (axes_smoke()) { return 1; }

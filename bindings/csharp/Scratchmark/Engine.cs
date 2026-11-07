@@ -229,6 +229,21 @@ public sealed unsafe class Engine : IDisposable
         }
     }
 
+    /// <summary>按笔宽的点间距重采样：只读派生，返回从首点到末点的等距点列。</summary>
+    public BrushPoint[] Resample(ulong revision, uint index, ResampleOptions options)
+    {
+        lock (gate)
+        {
+            Status probe = Native.ResampleStroke(Handle, revision, index, options, null, 0, out uint required);
+            if (probe != Status.Ok && probe != Status.BufferTooSmall) Check(probe);
+            if (required == 0) return [];
+            BrushPoint[] buffer = new BrushPoint[required];
+            fixed (BrushPoint* points = buffer)
+                Check(Native.ResampleStroke(Handle, revision, index, options, points, required, out _));
+            return buffer;
+        }
+    }
+
     /// <summary>预测笔迹：只读外推活动笔划的尾迹，不写文档、不改 revision。</summary>
     public BrushPoint[] Predict(ulong revision, PredictionOptions options)
     {
