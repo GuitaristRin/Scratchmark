@@ -64,6 +64,7 @@ _Static_assert(sizeof(SmBounds) == 32, "SmBounds ABI");
     X(SmStatus, sm_brush_preset_width, (uint32_t, uint32_t, double, double *)) \
     X(SmStatus, sm_resample_stroke, (SmHandle, uint64_t, uint32_t, const SmResampleOptions *, SmBrushPoint *, uint32_t, uint32_t *)) \
     X(SmStatus, sm_predict_ex, (SmHandle, uint64_t, const SmPredictionOptionsEx *, SmBrushPoint *, uint32_t, uint32_t *)) \
+    X(SmStatus, sm_cut_strokes, (SmHandle, uint64_t, const uint32_t *, uint32_t, uint8_t *, uint32_t, uint32_t *)) \
     X(SmStatus, sm_page_to_viewport, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_viewport_to_page, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_width_page_to_viewport, (const SmViewport *, double, double *)) \
@@ -918,6 +919,62 @@ static int predict_ex_smoke(void) {
     return 0;
 }
 
+/* 原子剪切：查询不剪切、剪贴板可粘贴、一次撤销整体恢复。 */
+static int cut_smoke(void) {
+    REQUIRE((api.sm_features() & SM_FEATURE_ATOMIC_CUT) != 0);
+    SmHandle handle = 0;
+    STATUS(api.sm_create(&handle), SM_OK);
+    SmSample first[2] = {{0.0, 0.0, 0, 0.0f, 0}, {10.0, 0.0, 10, 0.0f, 0}};
+    SmSample second[2] = {{0.0, 100.0, 0, 0.0f, 0}, {10.0, 100.0, 10, 0.0f, 0}};
+    STATUS(api.sm_begin(handle, 2.0, 0), SM_OK);
+    STATUS(api.sm_append(handle, first, 2), SM_OK);
+    STATUS(api.sm_finish(handle), SM_OK);
+    STATUS(api.sm_begin(handle, 2.0, 0), SM_OK);
+    STATUS(api.sm_append(handle, second, 2), SM_OK);
+    STATUS(api.sm_finish(handle), SM_OK);
+
+    SmState state;
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    uint32_t target = 0;
+    uint32_t required = 0;
+    STATUS(api.sm_cut_strokes(handle, state.revision, &target, 1, NULL, 0, &required), SM_BUFFER_TOO_SMALL);
+    REQUIRE(required > 8);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.stroke_count == 2); /* 查询模式没有剪切 */
+
+    uint8_t *bytes = malloc(required);
+    REQUIRE(bytes != NULL);
+    uint32_t written = 0;
+    STATUS(api.sm_cut_strokes(handle, state.revision, &target, 1, bytes, required, &written), SM_OK);
+    REQUIRE(written == required);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.stroke_count == 1);
+
+    /* 一次撤销整体恢复。 */
+    STATUS(api.sm_undo(handle), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.stroke_count == 2);
+
+    /* 剪贴板内容能粘贴回原几何。 */
+    STATUS(api.sm_paste(handle, state.revision, bytes, written, NULL), SM_OK);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.stroke_count == 3);
+    SmStrokeInfo info;
+    STATUS(api.sm_get_stroke(handle, state.revision, 2, &info), SM_OK);
+    REQUIRE(fabs(info.min_y - (-1.0)) < 1e-9);
+
+    /* 非法输入不改文档。 */
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    STATUS(api.sm_cut_strokes(handle, state.revision, &target, 0, bytes, required, &written), SM_INVALID_ARGUMENT);
+    uint32_t out_of_range = 99;
+    STATUS(api.sm_cut_strokes(handle, state.revision, &out_of_range, 1, bytes, required, &written), SM_INVALID_ARGUMENT);
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.stroke_count == 3);
+    free(bytes);
+    STATUS(api.sm_destroy(handle), SM_OK);
+    return 0;
+}
+
 int main(int argc, char **argv) {
 #ifdef SM_STATIC
     if (argc != 2) { fprintf(stderr, "usage: smoke SNAPSHOT_PATH\n"); return 2; }
@@ -1001,6 +1058,7 @@ int main(int argc, char **argv) {
     if (brush_smoke()) { return 1; }
     if (viewport_smoke()) { return 1; }
     if (hit_erase_smoke()) { return 1; }
+    if (cut_smoke()) { return 1; }
     if (predict_ex_smoke()) { return 1; }
     if (resample_smoke()) { return 1; }
     if (preset_smoke()) { return 1; }

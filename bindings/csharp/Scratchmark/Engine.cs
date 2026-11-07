@@ -137,6 +137,23 @@ public sealed unsafe class Engine : IDisposable
             Check(Native.TransformStrokes(Handle, revision, list, (uint)indices.Length, transform));
     }
 
+    /// <summary>原子剪切：一次调用产出剪贴板字节并删除选区，只产生一个撤销条目。</summary>
+    public byte[] CutStrokes(ulong revision, ReadOnlySpan<uint> indices)
+    {
+        lock (gate)
+        fixed (uint* list = indices)
+        {
+            uint count = (uint)indices.Length;
+            // 查询模式不剪切：先只读复制拿长度，再正式剪切。
+            Status probe = Native.CutStrokes(Handle, revision, list, count, null, 0, out uint required);
+            if (probe != Status.Ok && probe != Status.BufferTooSmall) Check(probe);
+            byte[] buffer = new byte[required];
+            fixed (byte* data = buffer)
+                Check(Native.CutStrokes(Handle, revision, list, count, data, required, out _));
+            return buffer;
+        }
+    }
+
     /// <summary>复制选区为格式 1 快照字节，可直接当剪贴板内容。</summary>
     public byte[] CopyStrokes(ulong revision, ReadOnlySpan<uint> indices)
     {

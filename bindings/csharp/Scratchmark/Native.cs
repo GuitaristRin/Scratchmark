@@ -150,4 +150,7 @@ internal static unsafe class Native
     [DllImport(Library, EntryPoint = "sm_predict_ex", CallingConvention = CallingConvention.Cdecl)]
     internal static extern Status PredictEx(ulong handle, ulong revision, in PredictionOptionsEx options,
         BrushPoint* points, uint capacity, out uint written);
+    [DllImport(Library, EntryPoint = "sm_cut_strokes", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern Status CutStrokes(ulong handle, ulong revision, uint* indices, uint count,
+        byte* data, uint capacity, out uint written);
 }
