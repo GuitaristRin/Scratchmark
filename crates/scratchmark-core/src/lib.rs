@@ -13,7 +13,7 @@ pub use brush::{BrushOptions, BrushPoint};
 pub use document::Document;
 pub use shape::{ShapeInfo, ShapeKind};
 pub use transform::Transform;
-pub use viewport::{Bounds, Point, Viewport};
+pub use viewport::{Bounds, Point, Viewport, ViewportEx};
 pub const MAX_BATCH: usize = 65_536;
 pub const MAX_POINTS: usize = 1_000_000;
 pub const MAX_STROKES: usize = 100_000;
