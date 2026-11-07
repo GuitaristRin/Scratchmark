@@ -2,7 +2,7 @@
 
 可嵌入的手写与页面批注模块。
 
-Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔迹与批注。当前 SDK 0.8.0 提供实验核心、C ABI 与 .NET 9 C# 适配；能力与验证边界见 [当前状态](docs/STATE_2026-11-07.md)。
+Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔迹与批注。当前 SDK 0.9.0 提供实验核心、C ABI 与 .NET 9 C# 适配；能力与验证边界见 [当前状态](docs/STATE_2026-11-07.md)。
 
 ## 当前范围
 
@@ -15,6 +15,7 @@ Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔�
 - 套索命中（只读查询）与按索引批量删除、清空；一次调用只占一个撤销条目，引擎不保存选区。
 - 选区仿射变换（平移 / 缩放 / 旋转 / 镜像 / 剪切）与剪贴板式复制粘贴；剪贴板内容是格式 1 快照字节，可跨页使用。
 - 形状规整：手写笔划拟合成直线 / 矩形 / 圆 / 箭头，带预览模式与残差，采纳与否由宿主决定。
+- 带旋转的视口：页面 ↔ 视口换算、线宽与旋转外接框，另有锚点缩放与适应窗口两个纯函数；旧视口语义不变。
 - Windows 原生动态 / 静态与 .NET 9 C# 实验适配；Linux x86_64 GNU 动态 / 静态接入与 SDK 独立验收已复跑。设备前端与手感未验证。
 
 PezMax-One 的课本／试卷批注是明确的后续接入场景。二进制 SDK 接入不必依赖 Git submodule，源码依赖作为另一种可选方式；本阶段不修改 PezMax-One，也不建立 submodule。
@@ -59,6 +60,8 @@ Git 远端使用 SSH：`git@github.com:GuitaristRin/Scratchmark.git`。
 - [M7 选区变换与复制粘贴规格 - Canon](spec/M7.md)
 - [M8 形状规整任务卡 - Canon](docs/IMPLEMENTATION_M8.md)
 - [M8 形状规整规格 - Canon](spec/M8.md)
+- [M9 视口旋转任务卡 - Canon](docs/IMPLEMENTATION_M9.md)
+- [M9 视口旋转规格 - Canon](spec/M9.md)
 - [M0 实验规格 - Canon](spec/M0.md)
 - [C 接口声明](include/scratchmark.h)
 - [SDK 使用说明](docs/SDK_README.md)

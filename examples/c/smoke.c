@@ -48,6 +48,13 @@ _Static_assert(sizeof(SmBounds) == 32, "SmBounds ABI");
     X(SmStatus, sm_copy_strokes, (SmHandle, uint64_t, const uint32_t *, uint32_t, uint8_t *, uint32_t, uint32_t *)) \
     X(SmStatus, sm_paste, (SmHandle, uint64_t, const uint8_t *, uint32_t, const SmTransform *)) \
     X(SmStatus, sm_regularize_stroke, (SmHandle, uint64_t, uint32_t, uint32_t, uint32_t, SmShapeInfo *)) \
+    X(SmStatus, sm_page_to_viewport_ex, (const SmViewportEx *, const SmPoint *, SmPoint *)) \
+    X(SmStatus, sm_viewport_to_page_ex, (const SmViewportEx *, const SmPoint *, SmPoint *)) \
+    X(SmStatus, sm_width_page_to_viewport_ex, (const SmViewportEx *, double, double *)) \
+    X(SmStatus, sm_width_viewport_to_page_ex, (const SmViewportEx *, double, double *)) \
+    X(SmStatus, sm_bounds_page_to_viewport_ex, (const SmViewportEx *, const SmBounds *, SmBounds *)) \
+    X(SmStatus, sm_viewport_ex_zoom_at, (const SmViewportEx *, const SmPoint *, double, SmViewportEx *)) \
+    X(SmStatus, sm_viewport_ex_fit, (const SmBounds *, double, double, double, double, SmViewportEx *)) \
     X(SmStatus, sm_page_to_viewport, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_viewport_to_page, (const SmViewport *, const SmPoint *, SmPoint *)) \
     X(SmStatus, sm_width_page_to_viewport, (const SmViewport *, double, double *)) \
@@ -562,6 +569,66 @@ static int shape_smoke(void) {
     return 0;
 }
 
+/* 视口旋转：90° 映射、往返、外接框、锚点缩放、适应窗口与非法输入。 */
+static int viewport_ex_smoke(void) {
+    REQUIRE((api.sm_features() & SM_FEATURE_VIEWPORT_ROTATION) != 0);
+    SmViewportEx vp = {1.0, 1.5707963267948966, 0.0, 0.0, 0};
+    SmPoint page = {10.0, 0.0};
+    SmPoint view = {0.0, 0.0};
+    STATUS(api.sm_page_to_viewport_ex(&vp, &page, &view), SM_OK);
+    REQUIRE(fabs(view.x) < 1e-9 && fabs(view.y - 10.0) < 1e-9);
+    SmPoint back = {0.0, 0.0};
+    STATUS(api.sm_viewport_to_page_ex(&vp, &view, &back), SM_OK);
+    REQUIRE(fabs(back.x - 10.0) < 1e-9 && fabs(back.y) < 1e-9);
+
+    /* 外接框：90° 时宽高互换。 */
+    SmBounds box = {0.0, 0.0, 100.0, 20.0};
+    SmBounds rotated;
+    STATUS(api.sm_bounds_page_to_viewport_ex(&vp, &box, &rotated), SM_OK);
+    REQUIRE(fabs((rotated.max_x - rotated.min_x) - 20.0) < 1e-9);
+    REQUIRE(fabs((rotated.max_y - rotated.min_y) - 100.0) < 1e-9);
+
+    /* 线宽只随 scale。 */
+    double width = 0.0;
+    STATUS(api.sm_width_page_to_viewport_ex(&vp, 6.0, &width), SM_OK);
+    REQUIRE(fabs(width - 6.0) < 1e-9);
+    STATUS(api.sm_width_viewport_to_page_ex(&vp, 6.0, &width), SM_OK);
+    REQUIRE(fabs(width - 6.0) < 1e-9);
+
+    /* 以视口点为锚缩放：锚点下的页面点不动。 */
+    SmViewportEx tilted = {1.3, 0.6, 12.0, -8.0, 0};
+    SmPoint anchor = {240.0, 180.0};
+    SmPoint before;
+    STATUS(api.sm_viewport_to_page_ex(&tilted, &anchor, &before), SM_OK);
+    SmViewportEx zoomed;
+    STATUS(api.sm_viewport_ex_zoom_at(&tilted, &anchor, 1.8, &zoomed), SM_OK);
+    SmPoint after;
+    STATUS(api.sm_viewport_to_page_ex(&zoomed, &anchor, &after), SM_OK);
+    REQUIRE(fabs(after.x - before.x) < 1e-9 && fabs(after.y - before.y) < 1e-9);
+    REQUIRE(fabs(zoomed.scale - 2.34) < 1e-9);
+
+    /* 适应窗口：90° 下页面中心落在视口中心。 */
+    SmBounds page_box = {0.0, 0.0, 800.0, 600.0};
+    SmViewportEx fitted;
+    STATUS(api.sm_viewport_ex_fit(&page_box, 1000.0, 800.0, 1.5707963267948966, 20.0, &fitted), SM_OK);
+    REQUIRE(fabs(fitted.scale - 760.0 / 800.0) < 1e-9);
+    SmPoint center = {400.0, 300.0};
+    SmPoint center_view;
+    STATUS(api.sm_page_to_viewport_ex(&fitted, &center, &center_view), SM_OK);
+    REQUIRE(fabs(center_view.x - 500.0) < 1e-9 && fabs(center_view.y - 400.0) < 1e-9);
+
+    /* 非法输入不写输出。 */
+    SmViewportEx bad = {0.0, 0.0, 0.0, 0.0, 0};
+    SmPoint sentinel = {77.0, 88.0};
+    STATUS(api.sm_page_to_viewport_ex(&bad, &page, &sentinel), SM_INVALID_ARGUMENT);
+    REQUIRE(sentinel.x == 77.0 && sentinel.y == 88.0);
+    SmViewportEx untouched = {9.0, 0.0, 0.0, 0.0, 0};
+    STATUS(api.sm_viewport_ex_zoom_at(&tilted, &anchor, 0.0, &untouched), SM_INVALID_ARGUMENT);
+    REQUIRE(untouched.scale == 9.0);
+    STATUS(api.sm_viewport_ex_fit(&page_box, 100.0, 100.0, 0.0, 60.0, &untouched), SM_INVALID_ARGUMENT);
+    return 0;
+}
+
 int main(int argc, char **argv) {
 #ifdef SM_STATIC
     if (argc != 2) { fprintf(stderr, "usage: smoke SNAPSHOT_PATH\n"); return 2; }
@@ -645,6 +712,7 @@ int main(int argc, char **argv) {
     if (brush_smoke()) { return 1; }
     if (viewport_smoke()) { return 1; }
     if (hit_erase_smoke()) { return 1; }
+    if (viewport_ex_smoke()) { return 1; }
     if (shape_smoke()) { return 1; }
     if (transform_smoke()) { return 1; }
     if (selection_smoke()) { return 1; }
