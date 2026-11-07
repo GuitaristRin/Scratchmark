@@ -5,11 +5,13 @@ mod document;
 mod erase;
 mod hit;
 mod select;
+mod shape;
 mod transform;
 mod viewport;
 
 pub use brush::{BrushOptions, BrushPoint};
 pub use document::Document;
+pub use shape::{ShapeInfo, ShapeKind};
 pub use transform::Transform;
 pub use viewport::{Bounds, Point, Viewport};
 pub const MAX_BATCH: usize = 65_536;
