@@ -173,6 +173,12 @@ SmStatus SM_CALL sm_viewport_ex_fit(const SmBounds *page_bounds,
     double view_width, double view_height, double angle, double padding,
     SmViewportEx *out_viewport);
 
+/* M16 原子剪切：编码剪贴板 + 同一个撤销条目内删除选区，参 spec/M16.md。 */
+#define SM_FEATURE_ATOMIC_CUT UINT64_C(16384)
+SmStatus SM_CALL sm_cut_strokes(SmHandle handle, uint64_t revision,
+    const uint32_t *indices, uint32_t count,
+    uint8_t *out_bytes, uint32_t capacity, uint32_t *out_written);
+
 /* M15 预测的刷新率输入；M10 的结构与签名不变，参 spec/M15.md。 */
 #define SM_FEATURE_PREDICT_REFRESH UINT64_C(8192)
 typedef struct SmPredictionOptionsEx {

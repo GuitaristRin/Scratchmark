@@ -130,6 +130,8 @@ mod axes_tests;
 #[cfg(test)]
 mod brush_tests;
 #[cfg(test)]
+mod cut_tests;
+#[cfg(test)]
 mod erase_path_tests;
 #[cfg(test)]
 mod extent_tests;
@@ -838,6 +840,36 @@ pub unsafe extern "C" fn sm_predict_ex(
             return Err(Error::BufferTooSmall);
         }
         slots[..predicted.len()].copy_from_slice(&predicted);
+        Ok(())
+    })
+}
+
+/// # Safety
+/// 输入索引与输出区必须满足 spec/M0.md 的指针与容量约束；语义参 spec/M16.md。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_cut_strokes(
+    handle: u64,
+    revision: u64,
+    indices: *const u32,
+    count: u32,
+    out_data: *mut u8,
+    capacity: u32,
+    out_required: *mut u32,
+) -> u32 {
+    guard(|| {
+        required(out_required)?;
+        let list = unsafe { input(indices, count, MAX_STROKES)? };
+        let slots = unsafe { output(out_data, capacity, MAX_SNAPSHOT)? };
+        // 先用只读复制算出需要多少字节：容量不足时绝不能已经剪掉。
+        let probe = with_doc(handle, |d| d.copy_strokes(revision, list))?;
+        unsafe {
+            out_required.write(probe.len() as u32);
+        }
+        if slots.len() < probe.len() {
+            return Err(Error::BufferTooSmall);
+        }
+        let bytes = with_doc(handle, |d| d.cut_strokes(revision, list))?;
+        slots[..bytes.len()].copy_from_slice(&bytes);
         Ok(())
     })
 }
