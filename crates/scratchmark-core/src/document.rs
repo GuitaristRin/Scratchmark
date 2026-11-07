@@ -359,7 +359,7 @@ impl Document {
         })
     }
 
-    fn stroke(&self, revision: u64, index: u32) -> Result<(&Stroke, bool)> {
+    pub(crate) fn stroke(&self, revision: u64, index: u32) -> Result<(&Stroke, bool)> {
         if revision != self.revision {
             return Err(Error::StaleRevision);
         }
