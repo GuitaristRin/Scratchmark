@@ -14,7 +14,7 @@ mod viewport;
 
 pub use brush::{BrushOptions, BrushPoint};
 pub use document::Document;
-pub use predict::{MAX_PREDICTION_POINTS, PredictionOptions};
+pub use predict::{MAX_PREDICTION_POINTS, PredictionOptions, PredictionOptionsEx};
 pub use preset::{BRUSH_LEVELS, BrushKind};
 pub use resample::ResampleOptions;
 pub use shape::{ShapeInfo, ShapeKind};

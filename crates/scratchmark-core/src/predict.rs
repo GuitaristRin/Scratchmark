@@ -112,3 +112,66 @@ impl Document {
         Ok(predicted)
     }
 }
+
+/// 带刷新率的预测选项：`refresh_rate_hz = 0` 表示未提供，行为与 `PredictionOptions` 一致。
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[repr(C)]
+pub struct PredictionOptionsEx {
+    pub horizon_us: f64,
+    pub max_distance: f64,
+    pub count: u32,
+    pub reserved: u32,
+    pub brush: BrushOptions,
+    pub refresh_rate_hz: f64,
+}
+
+/// 刷新率上限：超过这个值不再有意义（一帧不到 100 微秒）。
+const MAX_REFRESH_RATE_HZ: f64 = 10_000.0;
+
+impl PredictionOptionsEx {
+    /// 有效预测时间窗：刷新率提供时取 `min(horizon_us, 一帧时长)`。
+    pub fn effective_horizon(&self) -> Result<f64> {
+        let base = PredictionOptions {
+            horizon_us: self.horizon_us,
+            max_distance: self.max_distance,
+            count: self.count,
+            reserved: self.reserved,
+            brush: self.brush,
+        };
+        base.validate()?;
+        if !self.refresh_rate_hz.is_finite()
+            || !(0.0..=MAX_REFRESH_RATE_HZ).contains(&self.refresh_rate_hz)
+        {
+            return Err(Error::InvalidArgument);
+        }
+        if self.refresh_rate_hz == 0.0 {
+            return Ok(self.horizon_us);
+        }
+        let frame_us = 1_000_000.0 / self.refresh_rate_hz;
+        let effective = self.horizon_us.min(frame_us);
+        if !effective.is_finite() || effective <= 0.0 {
+            return Err(Error::InvalidArgument);
+        }
+        Ok(effective)
+    }
+}
+
+impl Document {
+    /// 带刷新率的预测：只把时间窗换成有效窗，其余与 `predict` 一致。
+    pub fn predict_ex(
+        &mut self,
+        revision: u64,
+        options: &PredictionOptionsEx,
+    ) -> Result<Vec<BrushPoint>> {
+        let horizon = options.effective_horizon()?;
+        let base = PredictionOptions {
+            horizon_us: horizon,
+            max_distance: options.max_distance,
+            count: options.count,
+            reserved: options.reserved,
+            brush: options.brush,
+        };
+        // 选项已在 `effective_horizon` 里校验过，这里只用换成有效窗的时间。
+        self.predict(revision, &base)
+    }
+}

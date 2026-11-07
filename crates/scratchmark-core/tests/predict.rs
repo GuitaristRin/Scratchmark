@@ -1,4 +1,6 @@
-use scratchmark_core::{BrushOptions, Document, Error, PredictionOptions, Sample};
+use scratchmark_core::{
+    BrushOptions, Document, Error, PredictionOptions, PredictionOptionsEx, Sample,
+};
 
 fn options(count: u32, horizon_us: f64, max_distance: f64) -> PredictionOptions {
     PredictionOptions {
@@ -258,4 +260,166 @@ fn prediction_is_read_only_for_history_and_snapshot() {
     assert_eq!(d.state(), before);
     assert_eq!(d.save().unwrap(), snapshot);
     assert_eq!(d.state().can_undo, 1);
+}
+
+fn flat_brush() -> BrushOptions {
+    BrushOptions {
+        alpha: 1.0,
+        min_width_ratio: 1.0,
+        pressure_enabled: 0,
+        reserved: 0,
+    }
+}
+
+fn active_line(d: &mut Document) {
+    d.begin(2.0, 0).unwrap();
+    // 0.1 页面单位 / 微秒。
+    d.append(&[
+        Sample {
+            x: 0.0,
+            y: 0.0,
+            time_us: 0,
+            pressure: 0.0,
+            flags: 0,
+        },
+        Sample {
+            x: 50.0,
+            y: 0.0,
+            time_us: 500,
+            pressure: 0.0,
+            flags: 0,
+        },
+        Sample {
+            x: 100.0,
+            y: 0.0,
+            time_us: 1000,
+            pressure: 0.0,
+            flags: 0,
+        },
+    ])
+    .unwrap();
+}
+
+fn base(horizon_us: f64, refresh_rate_hz: f64) -> PredictionOptionsEx {
+    PredictionOptionsEx {
+        horizon_us,
+        // 上限给足：本组测试关心时间窗，不关心长度收缩。
+        max_distance: 10_000.0,
+        count: 4,
+        reserved: 0,
+        brush: flat_brush(),
+        refresh_rate_hz,
+    }
+}
+
+#[test]
+fn zero_refresh_rate_matches_the_m10_result_exactly() {
+    let mut d = Document::default();
+    active_line(&mut d);
+    let revision = d.state().revision;
+
+    let legacy = d
+        .predict(
+            revision,
+            &PredictionOptions {
+                horizon_us: 1000.0,
+                max_distance: 1000.0,
+                count: 4,
+                reserved: 0,
+                brush: flat_brush(),
+            },
+        )
+        .unwrap();
+    let extended = d.predict_ex(revision, &base(1000.0, 0.0)).unwrap();
+    assert_eq!(legacy, extended);
+    assert_eq!(extended.len(), 4);
+}
+
+#[test]
+fn refresh_rate_caps_the_effective_horizon() {
+    let mut d = Document::default();
+    active_line(&mut d);
+    let revision = d.state().revision;
+
+    // 16 ms 窗、240 Hz → 一帧 4166.67 微秒；预测长度约为原来的 0.26。
+    let long = d.predict_ex(revision, &base(16_000.0, 0.0)).unwrap();
+    let capped = d.predict_ex(revision, &base(16_000.0, 240.0)).unwrap();
+    assert_eq!(long.len(), 4);
+    assert_eq!(capped.len(), 4);
+    // 笔尖在 x = 100，速度 0.1/µs：16 ms → +1600；一帧（240 Hz ≈ 4166.67 µs）→ +416.67。
+    assert!((long[3].x - 1700.0).abs() < 1e-6, "x {}", long[3].x);
+    assert!(
+        (capped[3].x - 516.666_666_7).abs() < 1e-6,
+        "x {}",
+        capped[3].x
+    );
+    assert!(capped[3].x < long[3].x);
+
+    // 刷新率极高时由刷新率决定：10000 Hz → 100 微秒 → +10。
+    let fast = d.predict_ex(revision, &base(16_000.0, 10_000.0)).unwrap();
+    assert!((fast[3].x - 110.0).abs() < 1e-6, "x {}", fast[3].x);
+
+    // 时间窗小于一帧时仍以时间窗为准：50 微秒 → +5。
+    let short = d.predict_ex(revision, &base(50.0, 240.0)).unwrap();
+    assert!((short[3].x - 105.0).abs() < 1e-6, "x {}", short[3].x);
+}
+
+#[test]
+fn max_distance_and_domain_rules_still_apply() {
+    let mut d = Document::default();
+    active_line(&mut d);
+    let revision = d.state().revision;
+
+    // 一帧很长但长度上限很小：总位移被收缩到上限。
+    let mut options = base(16_000.0, 60.0);
+    options.max_distance = 5.0;
+    let points = d.predict_ex(revision, &options).unwrap();
+    assert_eq!(points.len(), 4);
+    assert!((points[3].x - 105.0).abs() < 1e-6, "x {}", points[3].x);
+}
+
+#[test]
+fn invalid_refresh_rates_and_options_are_rejected() {
+    let mut d = Document::default();
+    active_line(&mut d);
+    let revision = d.state().revision;
+
+    for rate in [-1.0, f64::NAN, f64::INFINITY, 10_001.0] {
+        assert_eq!(
+            d.predict_ex(revision, &base(16_000.0, rate)),
+            Err(Error::InvalidArgument)
+        );
+    }
+    // M10 的既有非法组合仍然被拒绝。
+    let mut bad = base(16_000.0, 240.0);
+    bad.count = 0;
+    assert_eq!(d.predict_ex(revision, &bad), Err(Error::InvalidArgument));
+    let mut bad = base(16_000.0, 240.0);
+    bad.horizon_us = 0.0;
+    assert_eq!(d.predict_ex(revision, &bad), Err(Error::InvalidArgument));
+    let mut bad = base(16_000.0, 240.0);
+    bad.max_distance = 0.0;
+    assert_eq!(d.predict_ex(revision, &bad), Err(Error::InvalidArgument));
+    let mut bad = base(16_000.0, 240.0);
+    bad.reserved = 1;
+    assert_eq!(d.predict_ex(revision, &bad), Err(Error::InvalidArgument));
+    assert_eq!(
+        d.predict_ex(revision + 1, &base(16_000.0, 240.0)),
+        Err(Error::StaleRevision)
+    );
+
+    // 有效窗计算本身可单独核对。
+    assert_eq!(base(16_000.0, 0.0).effective_horizon().unwrap(), 16_000.0);
+    assert!((base(16_000.0, 1000.0).effective_horizon().unwrap() - 1000.0).abs() < 1e-9);
+    assert!((base(500.0, 240.0).effective_horizon().unwrap() - 500.0).abs() < 1e-9);
+}
+
+#[test]
+fn no_active_stroke_still_yields_no_points() {
+    let mut d = Document::default();
+    assert!(
+        d.predict_ex(d.state().revision, &base(16_000.0, 240.0))
+            .unwrap()
+            .is_empty()
+    );
 }
