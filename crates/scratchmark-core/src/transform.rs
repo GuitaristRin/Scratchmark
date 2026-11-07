@@ -217,6 +217,49 @@ impl Document {
     }
 }
 
+impl Document {
+    /// 整份平移：一次调用一个撤销条目；越界则整次失败。
+    pub fn translate_all(&mut self, revision: u64, dx: f64, dy: f64) -> Result<()> {
+        self.ensure_idle()?;
+        if revision != self.revision {
+            return Err(Error::StaleRevision);
+        }
+        if !dx.is_finite() || !dy.is_finite() || dx.abs() > MAX_COORD || dy.abs() > MAX_COORD {
+            return Err(Error::InvalidArgument);
+        }
+        if self.strokes.is_empty() {
+            return Ok(());
+        }
+        let transform = Transform::translate(dx, dy);
+        // 先全部算完再写入：任一点越界都不留半成品。
+        let mut replacements = Vec::with_capacity(self.strokes.len());
+        let mut added_points = 0;
+        for index in 0..self.strokes.len() {
+            let mapped = map_stroke(&self.strokes[index], &transform)?;
+            added_points += mapped.points.len();
+            replacements.push((index, mapped));
+        }
+        let added_strokes = replacements.len();
+        self.edit(move |d| {
+            d.discard_redo();
+            let mut ops = Vec::with_capacity(replacements.len());
+            for (index, mapped) in replacements {
+                let before = std::mem::replace(&mut d.strokes[index], mapped);
+                ops.push(ReplaceOp {
+                    index,
+                    after_count: 1,
+                    before: Some(before),
+                    after: None,
+                });
+            }
+            d.retained_points += added_points;
+            d.retained_strokes += added_strokes;
+            d.undo.push(Edit::Replace(ops));
+            Ok(())
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,5 +1,5 @@
 use crate::{
-    BrushOptions, BrushPoint, Error, MAX_BATCH, MAX_POINTS, MAX_STROKES, Result, Sample,
+    Bounds, BrushOptions, BrushPoint, Error, MAX_BATCH, MAX_POINTS, MAX_STROKES, Result, Sample,
     SampleAxes, State, Stroke, StrokeInfo,
 };
 
@@ -464,6 +464,33 @@ impl Document {
             d.undo.extend((0..d.strokes.len()).map(|_| Edit::Add(None)));
             d.redo.clear();
             Ok(())
+        })
+    }
+}
+
+impl Document {
+    /// 已提交笔划的并集边界（含笔宽）；没有已提交笔划时返回 `None`。
+    pub fn document_bounds(&self) -> Option<Bounds> {
+        let mut union: Option<[f64; 4]> = None;
+        for stroke in &self.strokes {
+            let Some(bounds) = stroke.bounds else {
+                continue;
+            };
+            union = Some(match union {
+                None => bounds,
+                Some(current) => [
+                    current[0].min(bounds[0]),
+                    current[1].min(bounds[1]),
+                    current[2].max(bounds[2]),
+                    current[3].max(bounds[3]),
+                ],
+            });
+        }
+        union.map(|value| Bounds {
+            min_x: value[0],
+            min_y: value[1],
+            max_x: value[2],
+            max_y: value[3],
         })
     }
 }
