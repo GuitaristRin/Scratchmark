@@ -134,3 +134,10 @@ PezMax-One 的既有正典尚未在该仓更新；未来实际接入前，需在
 
 按 [M14 任务卡](IMPLEMENTATION_M14.md) 与 `spec/M14.md` 推进：只做只读重采样（间距 = 笔宽 × 比例、按弧长等距、保留末点、附带逐点笔宽），
 避开纹理与虚线——那两项是渲染，宿主可自行基于点间距实现。
+## D20 - M15 范围：预测的刷新率输入（2026-11-07）
+
+依据：清单最后的待做项 G3，证据是 `原生库` 的 `外部实现::SetRefreshRate / SetMaxPredictTime / Predict`。
+
+按 [M15 任务卡](IMPLEMENTATION_M15.md) 与 `spec/M15.md` 推进：新增 `sm_predict_ex` 与 `SmPredictionOptionsEx`，
+刷新率大于 0 时有效时间窗取 `min(horizon_us, 1e6 / refresh_rate_hz)`；**M10 的结构与签名不动**，老宿主行为逐位不变。
+不排帧、不回调——刷新率只是预测窗的上限来源。
