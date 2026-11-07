@@ -66,7 +66,8 @@ Git 远端使用 SSH：`git@github.com:GuitaristRin/Scratchmark.git`。
 - 能力规格 `spec/M0.md` … `spec/M19.md`；当轮任务卡 `docs/IMPLEMENTATION_M<n>.md`
 - [当前状态时间线](docs/README.md#四现在到哪了时间线)
 
-按已确认的纯引擎及 Rust 核心 / 原生适配方向继续设计；具体依赖、显示后端、文件格式与对外接口仍待研究后确定。仓库当前计划保持私有，待研发充分后再评估公开。
+按已确认的纯引擎及 Rust 核心 / 原生适配方向继续设计。本仓库自 0.1.0-pre 起公开；接口与快照格式仍是实验版，不承诺兼容。
+
 ## 许可
 
 本项目采用 **MIT 或 Apache-2.0 双许可**，你可任选其一：
