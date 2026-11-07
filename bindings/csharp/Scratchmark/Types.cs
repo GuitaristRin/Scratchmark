@@ -31,10 +31,16 @@ public struct StrokeInfo
     public uint Color, PointCount, Active, Reserved;
 }
 
-public sealed class ScratchmarkException(Status status) : Exception($"Scratchmark: {status}")
+public sealed class ScratchmarkException : Exception
 {
-    public Status Status { get; } = status;
+    public ScratchmarkException(Status status) : base($"Scratchmark: {status}") => Status = status;
+
+    /// <summary>带自定义说明的场景（例如库定位失败），仍携带状态码。</summary>
+    public ScratchmarkException(Status status, string message) : base(message) => Status = status;
+
+    public Status Status { get; }
 }
+
 
 public readonly record struct HitResult(bool Found, uint Index);
 

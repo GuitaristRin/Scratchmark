@@ -5,6 +5,11 @@ public sealed unsafe class Engine : IDisposable
     private readonly object gate = new();
     private ulong handle;
 
+    /// <summary>用默认解析顺序加载原生库（包安装后无需传路径）。</summary>
+    public Engine() : this(Native.ResolveDefaultPath())
+    {
+    }
+
     public Engine(string dllPath)
     {
         Native.Load(dllPath);

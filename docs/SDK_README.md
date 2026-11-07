@@ -84,3 +84,5 @@ MSVC、UWP / .NET Native 与 Android JNI / AAR 尚未验收。SO 必须按目标
 `SmSample.flags` 是位域：`SM_FLAG_PRESSURE (1)` 表示该点带真实压力，`SM_FLAG_CUT_END (2)` 表示该点是**擦除切出来的端点**，其余位必须为 0。`sm_erase_path` 切分时只给切出来的端点置 bit1，原始端点不动；变换、平移、复制粘贴、快照往返都保留，规整归零。**写入通道（`sm_append` / `sm_append_axes`）拒绝 bit1**，标记只能由引擎产生。宿主渲染时对带 bit1 的端点收成圆缺口即可接近 参考实现 的观感——缺口形状是渲染策略，引擎不给几何。
 
 `sm_alloc` / `sm_free` 给**不能自己 malloc** 的宿主用（典型是 WebAssembly）：申请 8 字节对齐、上限 64 MiB、失败返回 `NULL`，分配出的内存可直接交给 `sm_save` / `sm_copy_strokes` / `sm_cut_strokes`。原生宿主继续用自己的分配器即可。平台与验证等级见 `docs/PLATFORMS.md`。
+
+托管侧可以从 NuGet 装包后直接 `new Engine()`：无参构造会按 `SCRATCHMARK_DLL` → `runtimes/<rid>/native` → 程序目录解析原生库（见 `docs/PLATFORMS.md`）。

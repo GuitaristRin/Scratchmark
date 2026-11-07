@@ -18,6 +18,32 @@ internal static unsafe class Native
     private static IntPtr Resolve(string name, Assembly assembly, DllImportSearchPath? searchPath)
         => name == Library ? library : IntPtr.Zero;
 
+    /// <summary>没有显式给路径时的解析顺序：环境变量 → runtimes/&lt;rid&gt;/native → 程序目录。</summary>
+    internal static string ResolveDefaultPath()
+    {
+        string? fromEnvironment = Environment.GetEnvironmentVariable("SCRATCHMARK_DLL");
+        if (!string.IsNullOrEmpty(fromEnvironment) && File.Exists(fromEnvironment)) return fromEnvironment;
+        string rid = RuntimeInformation.ProcessArchitecture switch
+        {
+            Architecture.X64 => "win-x64",
+            Architecture.X86 => "win-x86",
+            Architecture.Arm64 => "win-arm64",
+            _ => throw new PlatformNotSupportedException(
+                $"Unsupported architecture {RuntimeInformation.ProcessArchitecture}."),
+        };
+        string baseDirectory = AppContext.BaseDirectory;
+        string[] probes =
+        [
+            Path.Combine(baseDirectory, "runtimes", rid, "native", "scratchmark.dll"),
+            Path.Combine(baseDirectory, "scratchmark.dll"),
+            Path.Combine(Path.GetDirectoryName(typeof(Native).Assembly.Location) ?? baseDirectory,
+                "scratchmark.dll"),
+        ];
+        foreach (string probe in probes)
+            if (File.Exists(probe)) return probe;
+        throw new ScratchmarkException(Status.InvalidState,
+            $"scratchmark.dll not found. Probed: {string.Join(", ", probes)}. Set SCRATCHMARK_DLL to override.");
+    }
     internal static void Load(string path)
     {
         if (!OperatingSystem.IsWindows() || RuntimeInformation.ProcessArchitecture != Architecture.X64)
@@ -35,8 +61,8 @@ internal static unsafe class Native
             }
             // 库保持到进程结束，避免 finalizer 或在途调用访问已卸载代码。
             if (AbiVersion() != 1) throw new NotSupportedException("Expected Scratchmark ABI 1.");
-        if (!NativeLibrary.TryGetExport(library, "sm_features", out _) || (Features() & 65535) != 65535)
-            throw new NotSupportedException("SDK does not support M2 brush, M3 page/viewport, M4 hit/erase, M5 partial erase, M6 selection, M7 transform, M8 shape, M9 viewport rotation, M10 prediction, M11 stylus axes, M12 page extent, M13 brush preset, M14 resample, M15 prediction refresh, M16 atomic cut or M17 cut mark.");
+        if (!NativeLibrary.TryGetExport(library, "sm_features", out _) || (Features() & 131071) != 131071)
+            throw new NotSupportedException("SDK does not support M2 brush, M3 page/viewport, M4 hit/erase, M5 partial erase, M6 selection, M7 transform, M8 shape, M9 viewport rotation, M10 prediction, M11 stylus axes, M12 page extent, M13 brush preset, M14 resample, M15 prediction refresh, M16 atomic cut, M17 cut mark or M18 host alloc.");
         }
     }
 

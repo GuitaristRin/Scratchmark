@@ -15,7 +15,7 @@ SDK 版本见 `Cargo.toml`；能力位见 `sm_features()`（当前用到 bit 0�
 | Android | `jniLibs/{arm64-v8a,armeabi-v7a,x86_64}/libscratchmark.so` | 本机 + NDK 30 | ❌ 无设备/模拟器 | 产物已生成，仅编译与符号核对 |
 | Linux x86_64 | `libscratchmark.a`（静态，musl） | 本机 | ❌ 无 Linux 运行时 | 仅编译与符号核对 |
 | iOS | 源码与脚本 | ❌ 需要 macOS + Xcode | ❌ | 尚未开始 |
-| .NET (NuGet) | `Scratchmark.<ver>.nupkg` | 本机（win-x64 原生库） | 待做 | 尚未开始 |
+| .NET (NuGet) | `Scratchmark.0.18.0.nupkg`（含 `runtimes/win-x64/native/scratchmark.dll`） | 本机 | ✅ 消费方装包后 11 项 | 已交付 |
 
 ## WebAssembly
 
@@ -63,10 +63,18 @@ cargo build -p scratchmark-ffi --release --target x86_64-unknown-linux-musl
 需要 macOS + Xcode 才能产出 `aarch64-apple-ios` / `aarch64-apple-ios-sim` 与 XCFramework。
 在 Windows 上可以写 Swift 封装与 `Package.swift`，但**无法构建、无法验证**，所以本轮不做，避免交付"看起来有、其实没验证"的东西。
 
-## .NET / NuGet（未开始）
+## .NET / NuGet
 
-现有 `bindings/csharp` 是手写 P/Invoke，需要补的是**按 RID 放原生库的 nupkg**
-（`runtimes/win-x64/native/scratchmark.dll` 等），`win-x64` 可本机验证；Android/iOS 的 RID 要等对应产物齐备。
+```powershell
+pwsh tools/pack-nuget.ps1     # 先构建 SDK，再打包，再用临时工程装包验证
+```
+
+- 包内布局：`lib/net9.0/Scratchmark.dll` + `runtimes/win-x64/native/scratchmark.dll`；消费方 `new Engine()`（无参）
+  会按 `SCRATCHMARK_DLL` → `runtimes/<rid>/native` → 程序目录 的顺序解析原生库。
+- 验证：临时控制台工程从**本地源**装包，跑 11 项断言（写入 / 派生 / 快照 / 擦除切分与切点标记 / 边界 / 预置 / 原子剪切）全通过。
+- 已知限制：只有 `win-x64` 原生资产；Android/iOS 的 RID 要等对应产物齐备后再加。包版本与 `Cargo.toml` 的 SDK 版本
+  需要手工保持一致（`pack-nuget.ps1` 会核对它产出的 SDK zip 版本）。
+- 踩过的坑（已写进脚本）：同名同版本的包会被 NuGet 全局缓存复用，验证前必须清 `~/.nuget/packages/scratchmark/<ver>`，否则验的是上一版。
 
 ## 宿主接入要点（跨平台一致）
 
