@@ -1,6 +1,6 @@
 # Scratchmark M0 开发 SDK
 
-这是无 UI 的实验性原生引擎，SDK 0.17.0 / ABI 1，快照格式 1 / 2（页面标识）/ 3（逐点轴向），能力位 bit 0 支持平滑 / 压力派生读取，bit 1 支持页面标识与视口变换，bit 2 支持命中测试与整笔擦除，bit 3 支持沿擦除路径的局部擦除，bit 4 支持套索命中与批量删除，bit 5 支持选区变换与复制粘贴，bit 6 支持形状规整，bit 7 支持带旋转的视口，bit 8 支持预测笔迹，bit 9 支持逐点轴向（倾斜 / 朝向），bit 10 支持文档边界与整份平移，bit 11 支持笔型尺寸预置，bit 12 支持按笔宽的点间距重采样，bit 13 支持带刷新率的预测，bit 14 支持原子剪切，bit 15 支持擦除切点标记。不提供稳定发布兼容承诺；原始行为参 `spec/M0.md`，派生笔刷参 `spec/M2.md`，页面标识与视口参 `spec/M3.md`，命中与整笔擦除参 `spec/M4.md`，局部擦除参 `spec/M5.md`，套索与批量删除参 `spec/M6.md`，选区变换与复制粘贴参 `spec/M7.md`，形状规整参 `spec/M8.md`，视口旋转参 `spec/M9.md`，预测笔迹参 `spec/M10.md`，逐点轴向与格式 3 参 `spec/M11.md`，文档边界与整份平移参 `spec/M12.md`，笔型预置参 `spec/M13.md`，点间距重采样参 `spec/M14.md`，预测刷新率参 `spec/M15.md`，原子剪切参 `spec/M16.md`，切点标记参 `spec/M17.md`。
+这是无 UI 的实验性原生引擎，SDK 0.18.0 / ABI 1，快照格式 1 / 2（页面标识）/ 3（逐点轴向），能力位 bit 0 支持平滑 / 压力派生读取，bit 1 支持页面标识与视口变换，bit 2 支持命中测试与整笔擦除，bit 3 支持沿擦除路径的局部擦除，bit 4 支持套索命中与批量删除，bit 5 支持选区变换与复制粘贴，bit 6 支持形状规整，bit 7 支持带旋转的视口，bit 8 支持预测笔迹，bit 9 支持逐点轴向（倾斜 / 朝向），bit 10 支持文档边界与整份平移，bit 11 支持笔型尺寸预置，bit 12 支持按笔宽的点间距重采样，bit 13 支持带刷新率的预测，bit 14 支持原子剪切，bit 15 支持擦除切点标记，bit 16 支持宿主内存分配。不提供稳定发布兼容承诺；原始行为参 `spec/M0.md`，派生笔刷参 `spec/M2.md`，页面标识与视口参 `spec/M3.md`，命中与整笔擦除参 `spec/M4.md`，局部擦除参 `spec/M5.md`，套索与批量删除参 `spec/M6.md`，选区变换与复制粘贴参 `spec/M7.md`，形状规整参 `spec/M8.md`，视口旋转参 `spec/M9.md`，预测笔迹参 `spec/M10.md`，逐点轴向与格式 3 参 `spec/M11.md`，文档边界与整份平移参 `spec/M12.md`，笔型预置参 `spec/M13.md`，点间距重采样参 `spec/M14.md`，预测刷新率参 `spec/M15.md`，原子剪切参 `spec/M16.md`，切点标记参 `spec/M17.md`，宿主内存分配参 `spec/M18.md`。
 
 ## 包内容
 
@@ -31,7 +31,7 @@ Linux x86_64 GNU 使用 `tools/build-sdk.sh` 与 `tools/verify-sdk.sh`，包内�
 
 ## 调用顺序
 
-1. 动态加载库，核对 `sm_abi_version()`；使用派生笔刷需 `sm_features()` bit 0，页面标识 / 视口需 bit 1，命中 / 整笔擦除需 bit 2，局部擦除需 bit 3，套索与批量删除需 bit 4，变换与复制粘贴需 bit 5，形状规整需 bit 6，旋转视口需 bit 7，预测笔迹需 bit 8，轴向需 bit 9，边界 / 整份平移需 bit 10，笔型预置需 bit 11，重采样需 bit 12，预测刷新率需 bit 13，原子剪切需 bit 14，切点标记需 bit 15。创建句柄，可 `sm_set_page_id` 绑定宿主页面键。
+1. 动态加载库，核对 `sm_abi_version()`；使用派生笔刷需 `sm_features()` bit 0，页面标识 / 视口需 bit 1，命中 / 整笔擦除需 bit 2，局部擦除需 bit 3，套索与批量删除需 bit 4，变换与复制粘贴需 bit 5，形状规整需 bit 6，旋转视口需 bit 7，预测笔迹需 bit 8，轴向需 bit 9，边界 / 整份平移需 bit 10，笔型预置需 bit 11，重采样需 bit 12，预测刷新率需 bit 13，原子剪切需 bit 14，切点标记需 bit 15，`sm_alloc` / `sm_free` 需 bit 16。创建句柄，可 `sm_set_page_id` 绑定宿主页面键。
 2. `sm_begin` → 一次或多次 `sm_append`；每次输入后均可读取活动笔迹。
 3. 用 `sm_get_state` 取得 revision，以同一 revision 读取笔划元数据及分段点；若状态改变，重新取得 revision。
 4. `sm_finish` 确认笔划或 `sm_cancel` 丢弃；空闲时可 undo / redo。
@@ -82,3 +82,5 @@ MSVC、UWP / .NET Native 与 Android JNI / AAR 尚未验收。SO 必须按目标
 `sm_cut_strokes` / C# `CutStrokes` 把“复制选区 + 删除选区”合成一次调用：先按 `sm_copy_strokes` 的规则编码剪贴板字节，再在**同一个**撤销条目里移除选区，所以一次撤销整体恢复。容量不足或查询模式（`capacity == 0`）**不会剪切**，只回报所需字节数。索引规则与 M6 / M7 一致：乱序可以，重复与越界是 `INVALID_ARGUMENT`。
 
 `SmSample.flags` 是位域：`SM_FLAG_PRESSURE (1)` 表示该点带真实压力，`SM_FLAG_CUT_END (2)` 表示该点是**擦除切出来的端点**，其余位必须为 0。`sm_erase_path` 切分时只给切出来的端点置 bit1，原始端点不动；变换、平移、复制粘贴、快照往返都保留，规整归零。**写入通道（`sm_append` / `sm_append_axes`）拒绝 bit1**，标记只能由引擎产生。宿主渲染时对带 bit1 的端点收成圆缺口即可接近 参考实现 的观感——缺口形状是渲染策略，引擎不给几何。
+
+`sm_alloc` / `sm_free` 给**不能自己 malloc** 的宿主用（典型是 WebAssembly）：申请 8 字节对齐、上限 64 MiB、失败返回 `NULL`，分配出的内存可直接交给 `sm_save` / `sm_copy_strokes` / `sm_cut_strokes`。原生宿主继续用自己的分配器即可。平台与验证等级见 `docs/PLATFORMS.md`。

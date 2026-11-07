@@ -8,6 +8,9 @@ use scratchmark_core::{
     PredictionOptionsEx, ResampleOptions, Sample, SampleAxes, ShapeInfo, ShapeKind, State,
     StrokeInfo, Transform, Viewport, ViewportEx,
 };
+
+/// `sm_alloc` 的单次上限：64 MiB，与快照上限一致。
+const MAX_ALLOC: usize = 64 * 1024 * 1024;
 /// # Safety
 /// 输出指针必须满足 spec/M0.md 的可写、对齐与独占约束。
 #[unsafe(no_mangle)]
@@ -125,6 +128,9 @@ pub unsafe extern "C" fn sm_load(handle: u64, data: *const u8, length: u32) -> u
     })
 }
 
+#[cfg(test)]
+#[cfg(test)]
+mod alloc_tests;
 #[cfg(test)]
 mod axes_tests;
 #[cfg(test)]
@@ -874,4 +880,35 @@ pub unsafe extern "C" fn sm_cut_strokes(
         slots[..bytes.len()].copy_from_slice(&bytes);
         Ok(())
     })
+}
+
+/// 宿主在引擎所在模块内申请内存；`size` 必须是 `(0, 64 MiB]`，对齐 8 字节。
+///
+/// 用途：像 WebAssembly 这类“宿主不能自己 malloc”的环境需要一块可传给 `sm_save` /
+/// `sm_copy_strokes` / `sm_cut_strokes` 的缓冲区。原生宿主通常直接用 libc 的 malloc。
+/// 失败返回 NULL。
+#[unsafe(no_mangle)]
+pub extern "C" fn sm_alloc(size: u32) -> *mut u8 {
+    if size == 0 || size as usize > MAX_ALLOC {
+        return std::ptr::null_mut();
+    }
+    let layout = match std::alloc::Layout::from_size_align(size as usize, 8) {
+        Ok(layout) => layout,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    unsafe { std::alloc::alloc(layout) }
+}
+
+/// 释放 `sm_alloc` 返回的指针；`size` 必须与申请时一致，`NULL` 是空操作。
+///
+/// # Safety
+/// `pointer` 必须来自 `sm_alloc` 的同尺寸申请，且未被重复释放。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sm_free(pointer: *mut u8, size: u32) {
+    if pointer.is_null() || size == 0 || size as usize > MAX_ALLOC {
+        return;
+    }
+    if let Ok(layout) = std::alloc::Layout::from_size_align(size as usize, 8) {
+        unsafe { std::alloc::dealloc(pointer, layout) };
+    }
 }

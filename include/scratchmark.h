@@ -173,6 +173,11 @@ SmStatus SM_CALL sm_viewport_ex_fit(const SmBounds *page_bounds,
     double view_width, double view_height, double angle, double padding,
     SmViewportEx *out_viewport);
 
+/* M18 宿主内存分配：给不能自己 malloc 的宿主（如 WebAssembly）用，参 spec/M18.md。 */
+#define SM_FEATURE_HOST_ALLOC UINT64_C(65536)
+uint8_t *SM_CALL sm_alloc(uint32_t size);
+void SM_CALL sm_free(uint8_t *pointer, uint32_t size);
+
 /* M17 擦除切点标记：SmSample.flags 为位域（bit0 压力、bit1 切点），参 spec/M17.md。 */
 #define SM_FEATURE_CUT_MARK UINT64_C(32768)
 #define SM_FLAG_PRESSURE UINT32_C(1)

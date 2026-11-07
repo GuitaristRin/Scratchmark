@@ -152,3 +152,16 @@ PezMax-One 的既有正典尚未在该仓更新；未来实际接入前，需在
 按 [M17 任务卡](IMPLEMENTATION_M17.md) 与 `spec/M17.md` 推进：把 `SmSample.flags` 扩成位域（bit0 压力、bit1 擦除切点），
 引擎只在 `sm_erase_path` 切出端点时打标，宿主据此渲染圆缺口。**不改快照格式、不新增读取导出、不实现像素擦**——
 这是渲染提示，不是新几何。
+## D23 - M18 范围：宿主内存分配（2026-11-07）
+
+依据：做 WebAssembly 封装时发现 wasm 宿主没有可用的分配器，`sm_save` / `sm_copy_strokes` / `sm_cut_strokes`
+这些"输出到宿主缓冲区"的接口无法调用。按 [M18 任务卡](IMPLEMENTATION_M18.md) 与 `spec/M18.md` 补 `sm_alloc` / `sm_free`
+（8 字节对齐、64 MiB 上限、失败返回 NULL、不进入 guard），features bit 16。原生宿主继续用自己的分配器。
+
+## D24 - 平台交付按"能否真验证"分层（2026-11-07）
+
+依据：用户要求"提供各平台的封装库"，而本机只有 Windows 工具链（无 WSL、无 Android 设备/模拟器、无 macOS）。
+
+按 `docs/PLATFORMS.md` 分层：Windows 与 WebAssembly **真跑**（C/WASM 冒烟）；Android 与 Linux **只证明能编、符号对**
+（Android 三 ABI 由 NDK 核对 52 个导出；Linux 只能出 musl 静态库，cargo 明确丢弃 musl 的 cdylib）；iOS 需要 macOS 故暂不做。
+不许把"能编"写成"支持"。

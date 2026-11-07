@@ -2,7 +2,7 @@
 
 可嵌入的手写与页面批注模块。
 
-Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔迹与批注。当前 SDK 0.17.0 提供实验核心、C ABI 与 .NET 9 C# 适配；能力与验证边界见 [当前状态](docs/STATE_2026-11-07.md)。
+Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔迹与批注。当前 SDK 0.18.0 提供实验核心、C ABI 与 .NET 9 C# 适配；能力与验证边界见 [当前状态](docs/STATE_2026-11-07.md)。
 
 ## 当前范围
 
@@ -24,6 +24,7 @@ Scratchmark 面向独立手写画布，以及课本、试卷等页面上的笔�
 - 预测刷新率：按屏幕刷新率压缩预测时间窗；刷新率为 0 时与 M10 逐点一致。
 - 原子剪切：一次调用产出剪贴板字节并删除选区，只产生一个撤销条目。
 - 擦除切点标记：`flags` 位域标出被切出来的端点，宿主据此画圆缺口而不是平口。
+- 宿主内存分配：`sm_alloc` / `sm_free`，让没有 malloc 的宿主（如 WebAssembly）也能用快照类接口。
 - Windows 原生动态 / 静态与 .NET 9 C# 实验适配；Linux x86_64 GNU 动态 / 静态接入与 SDK 独立验收已复跑。设备前端与手感未验证。
 
 PezMax-One 的课本／试卷批注是明确的后续接入场景。二进制 SDK 接入不必依赖 Git submodule，源码依赖作为另一种可选方式；本阶段不修改 PezMax-One，也不建立 submodule。
@@ -86,6 +87,9 @@ Git 远端使用 SSH：`git@github.com:GuitaristRin/Scratchmark.git`。
 - [M16 原子剪切规格 - Canon](spec/M16.md)
 - [M17 擦除切点标记任务卡 - Canon](docs/IMPLEMENTATION_M17.md)
 - [M17 擦除切点标记规格 - Canon](spec/M17.md)
+- [M18 宿主内存分配任务卡 - Canon](docs/IMPLEMENTATION_M18.md)
+- [M18 宿主内存分配规格 - Canon](spec/M18.md)
+- [平台与封装库](docs/PLATFORMS.md)
 - [M0 实验规格 - Canon](spec/M0.md)
 - [C 接口声明](include/scratchmark.h)
 - [SDK 使用说明](docs/SDK_README.md)
