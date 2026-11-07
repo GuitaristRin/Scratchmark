@@ -58,6 +58,7 @@ internal static unsafe partial class Program
         ResampleCheck(args[0]);
         PredictionRefresh(args[0]);
         AtomicCut(args[0]);
+        CutMark(args[0]);
         Console.WriteLine($"C# smoke: {checks} checks passed");
         return 0;
     }

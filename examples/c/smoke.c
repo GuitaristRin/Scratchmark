@@ -318,7 +318,8 @@ static int partial_erase_smoke(void) {
     uint32_t written = 0;
     STATUS(api.sm_read_points(handle, state.revision, 1, 0, cut, 2, &written), SM_OK);
     REQUIRE(written == 2 && fabs(cut[0].x - 7.0) < 1e-9 && cut[0].time_us == 700);
-    REQUIRE(cut[0].flags == 1 && fabsf(cut[0].pressure - 0.7f) < 1e-6f);
+    /* M17 起切点同时置 bit1：压力位 + 切点位。 */
+    REQUIRE((cut[0].flags & SM_FLAG_PRESSURE) != 0 && (cut[0].flags & SM_FLAG_CUT_END) != 0 && fabsf(cut[0].pressure - 0.7f) < 1e-6f);
     uint32_t index = 99, found = 99;
     STATUS(api.sm_hit_test(handle, state.revision, 5.0, 0.0, 0.0, &index, &found), SM_OK);
     REQUIRE(found == 0);
@@ -975,6 +976,52 @@ static int cut_smoke(void) {
     return 0;
 }
 
+/* 擦除切点标记：切出来的端点带 bit1，原始端点不带，快照往返保留。 */
+static int cut_mark_smoke(void) {
+    REQUIRE((api.sm_features() & SM_FEATURE_CUT_MARK) != 0);
+    SmHandle handle = 0;
+    STATUS(api.sm_create(&handle), SM_OK);
+    SmSample line[2] = {{0.0, 0.0, 0, 0.0f, 0}, {10.0, 0.0, 100, 0.0f, 0}};
+    STATUS(api.sm_begin(handle, 2.0, 0x11223344), SM_OK);
+    STATUS(api.sm_append(handle, line, 2), SM_OK);
+    STATUS(api.sm_finish(handle), SM_OK);
+    SmState state;
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    SmPoint path = {5.0, 0.0};
+    STATUS(api.sm_erase_path(handle, state.revision, &path, 1, 2.0), SM_OK);
+
+    STATUS(api.sm_get_state(handle, &state), SM_OK);
+    REQUIRE(state.stroke_count == 2);
+    SmSample read[4];
+    uint32_t written = 0;
+    SmStrokeInfo info;
+    STATUS(api.sm_get_stroke(handle, state.revision, 0, &info), SM_OK);
+    STATUS(api.sm_read_points(handle, state.revision, 0, 0, read, info.point_count, &written), SM_OK);
+    REQUIRE((read[0].flags & SM_FLAG_CUT_END) == 0);
+    REQUIRE((read[written - 1].flags & SM_FLAG_CUT_END) != 0);
+    STATUS(api.sm_get_stroke(handle, state.revision, 1, &info), SM_OK);
+    STATUS(api.sm_read_points(handle, state.revision, 1, 0, read, info.point_count, &written), SM_OK);
+    REQUIRE((read[0].flags & SM_FLAG_CUT_END) != 0);
+    REQUIRE((read[written - 1].flags & SM_FLAG_CUT_END) == 0);
+
+    /* 标记不需要新快照格式。 */
+    uint32_t required = 0;
+    STATUS(api.sm_save(handle, NULL, 0, &required), SM_BUFFER_TOO_SMALL);
+    uint8_t *bytes = malloc(required);
+    REQUIRE(bytes != NULL);
+    STATUS(api.sm_save(handle, bytes, required, &required), SM_OK);
+    REQUIRE(memcmp(bytes, "SCRATCH\0", 8) == 0);
+    free(bytes);
+
+    /* 写入通道拒绝伪造的切点位。 */
+    STATUS(api.sm_begin(handle, 2.0, 0), SM_OK);
+    SmSample forged = {0.0, 0.0, 0, 0.0f, SM_FLAG_CUT_END};
+    STATUS(api.sm_append(handle, &forged, 1), SM_INVALID_ARGUMENT);
+    STATUS(api.sm_cancel(handle), SM_OK);
+    STATUS(api.sm_destroy(handle), SM_OK);
+    return 0;
+}
+
 int main(int argc, char **argv) {
 #ifdef SM_STATIC
     if (argc != 2) { fprintf(stderr, "usage: smoke SNAPSHOT_PATH\n"); return 2; }
@@ -1058,6 +1105,7 @@ int main(int argc, char **argv) {
     if (brush_smoke()) { return 1; }
     if (viewport_smoke()) { return 1; }
     if (hit_erase_smoke()) { return 1; }
+    if (cut_mark_smoke()) { return 1; }
     if (cut_smoke()) { return 1; }
     if (predict_ex_smoke()) { return 1; }
     if (resample_smoke()) { return 1; }

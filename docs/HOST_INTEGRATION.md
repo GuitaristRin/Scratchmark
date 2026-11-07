@@ -1,6 +1,6 @@
 # 宿主接入说明：供 PezMax-One 重构参考
 
-状态：SDK 0.16.0 实验接入说明，2026-11-07。本文件只约束 Scratchmark 能力事实，不替 PezMax-One 裁定架构或技术栈；用户负责其初步重构。本轮未修改该仓。
+状态：SDK 0.17.0 实验接入说明，2026-11-07。本文件只约束 Scratchmark 能力事实，不替 PezMax-One 裁定架构或技术栈；用户负责其初步重构。本轮未修改该仓。
 
 ## 可以先明确的边界
 
@@ -12,11 +12,11 @@
 
 ## 当前调用链
 
-1. 固定匹配目标平台的 SDK，检查 ABI 1 和 sm_features 的 bit 0–14；加载库后不在文档存活期间卸载。Windows C# 现仅验收 .NET 9 / x64，不能据此假定 UWP / .NET Native 或其他宿主技术已支持。
+1. 固定匹配目标平台的 SDK，检查 ABI 1 和 sm_features 的 bit 0–15；加载库后不在文档存活期间卸载。Windows C# 现仅验收 .NET 9 / x64，不能据此假定 UWP / .NET Native 或其他宿主技术已支持。
 2. create → begin(width, color) → append(批次)。不为凑批额外等待；活动笔划期间可以读取原始点或平滑 / 压力派生点。
 3. get_state 取得 revision；同一 revision 读取 stroke metadata 和点，活动笔划的索引为 stroke_count。STALE_REVISION 时重新获取状态，不拼接不同 revision 的数据。
 4. 原始 read_points 不变。新 read_brush_points 输出 X / Y / Width，Width 是完整笔宽。配合原 color 呈现中心线与逐点线宽；单点为圆盘，像素抗锯齿仍由宿主完成。
-5. finish / cancel；空闲时 undo / redo。M4 起可在空闲时用 `sm_erase_stroke` 删除整笔；`sm_hit_test` 只查已提交笔划、多命中取最上层。命中容差先按 `sm_width_viewport_to_page` 换算到页面域再传入。局部擦除用 `sm_erase_path` 传入页面坐标折线与半径，引擎切分笔划；片段是新笔划，索引会变，成功后必须重新取 state。套索用 `sm_lasso_hits` 得到升序索引（引擎不保存选区，高亮由宿主画），再用 `sm_erase_indices` 一次删掉；`sm_clear` 一次清空也只占一个撤销条目。选区可用 `sm_transform_strokes` 平移 / 缩放 / 旋转 / 镜像 / 剪切（一次调用一个撤销条目）；复制粘贴用 `sm_copy_strokes` 产出格式 1 字节、`sm_paste` 粘贴回来（可带变换），宿主可把这份字节放进系统剪贴板或跨页使用。形状用手写后调 `sm_regularize_stroke` 规整（直线 / 矩形 / 圆 / 箭头），先用预览拿到残差再自己决定是否采纳；视口可用 `SmViewportEx` 带旋转（缩放 → 旋转 → 平移），缩放走 `sm_viewport_ex_zoom_at` 保证光标下的页面点不动，开页走 `sm_viewport_ex_fit`；预测用 `sm_predict` 每帧取一小段尾迹，与真实笔迹分开绘制，下一批样本到达后立即丢弃；笔的倾斜与朝向用 `sm_append_axes` 随样本写入（`tilt` 弧度 `[0, π/2]`、`orientation` 弧度 `[-π, π]`），引擎只保存与传播、不解释；画布增长由宿主负责：用 `sm_document_bounds` 取内容边界算出页面该多高，从顶部加长时用 `sm_translate_all` 把内容整体下移（一个撤销条目）；页面高度、顶部留白与滚动位置不入快照。笔宽可用 `sm_brush_preset_width` 从「笔型 + 档位」换算，也可以直接给具体宽度——预置表只是默认值。铺笔触用 `sm_resample_stroke`：给一个 `间距 = 笔宽 × 比例` 就得到等距点列与逐点笔宽，末点固定落在原始末点上。预测若按屏幕刷新节拍使用，用 `sm_predict_ex` 传入刷新率，引擎据一帧时长压缩时间窗。选区剪切用 `sm_cut_strokes` 一次完成，不要自己拼“复制 + 删除”，否则撤销一次只回退一半。
+5. finish / cancel；空闲时 undo / redo。M4 起可在空闲时用 `sm_erase_stroke` 删除整笔；`sm_hit_test` 只查已提交笔划、多命中取最上层。命中容差先按 `sm_width_viewport_to_page` 换算到页面域再传入。局部擦除用 `sm_erase_path` 传入页面坐标折线与半径，引擎切分笔划；片段是新笔划，索引会变，成功后必须重新取 state。套索用 `sm_lasso_hits` 得到升序索引（引擎不保存选区，高亮由宿主画），再用 `sm_erase_indices` 一次删掉；`sm_clear` 一次清空也只占一个撤销条目。选区可用 `sm_transform_strokes` 平移 / 缩放 / 旋转 / 镜像 / 剪切（一次调用一个撤销条目）；复制粘贴用 `sm_copy_strokes` 产出格式 1 字节、`sm_paste` 粘贴回来（可带变换），宿主可把这份字节放进系统剪贴板或跨页使用。形状用手写后调 `sm_regularize_stroke` 规整（直线 / 矩形 / 圆 / 箭头），先用预览拿到残差再自己决定是否采纳；视口可用 `SmViewportEx` 带旋转（缩放 → 旋转 → 平移），缩放走 `sm_viewport_ex_zoom_at` 保证光标下的页面点不动，开页走 `sm_viewport_ex_fit`；预测用 `sm_predict` 每帧取一小段尾迹，与真实笔迹分开绘制，下一批样本到达后立即丢弃；笔的倾斜与朝向用 `sm_append_axes` 随样本写入（`tilt` 弧度 `[0, π/2]`、`orientation` 弧度 `[-π, π]`），引擎只保存与传播、不解释；画布增长由宿主负责：用 `sm_document_bounds` 取内容边界算出页面该多高，从顶部加长时用 `sm_translate_all` 把内容整体下移（一个撤销条目）；页面高度、顶部留白与滚动位置不入快照。笔宽可用 `sm_brush_preset_width` 从「笔型 + 档位」换算，也可以直接给具体宽度——预置表只是默认值。铺笔触用 `sm_resample_stroke`：给一个 `间距 = 笔宽 × 比例` 就得到等距点列与逐点笔宽，末点固定落在原始末点上。预测若按屏幕刷新节拍使用，用 `sm_predict_ex` 传入刷新率，引擎据一帧时长压缩时间窗。选区剪切用 `sm_cut_strokes` 一次完成，不要自己拼“复制 + 删除”，否则撤销一次只回退一半。局部擦除后读回样本时注意 `flags` 的 bit1：带它的端点是切出来的，按圆缺口收尾才不会被用户看成“垂直截断”。
 6. 空闲时 save 取得内存快照；设置了页面标识的文档写格式 2（魔数 `SCRATCH2`），未设置仍写格式 1。文件写入、原子替换、保留上一份有效文件由宿主负责。重开时创建引擎并 load——若引擎已设页面标识且快照标识非零不同，load 返回 INVALID_DATA，宿主可用它作为跨页保护。不要把 revision 或进程句柄持久化。
 
 ## 平滑与压力配置要一并保留

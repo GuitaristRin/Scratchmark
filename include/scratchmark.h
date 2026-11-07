@@ -25,7 +25,7 @@ typedef struct SmSample {
     double x, y;
     uint64_t time_us;
     float pressure;
-    uint32_t flags;
+    uint32_t flags;            /* 位域：bit0 压力、bit1 擦除切点（M17） */
 } SmSample;
 typedef struct SmState {
     uint64_t revision;
@@ -172,6 +172,11 @@ SmStatus SM_CALL sm_viewport_ex_zoom_at(const SmViewportEx *viewport,
 SmStatus SM_CALL sm_viewport_ex_fit(const SmBounds *page_bounds,
     double view_width, double view_height, double angle, double padding,
     SmViewportEx *out_viewport);
+
+/* M17 擦除切点标记：SmSample.flags 为位域（bit0 压力、bit1 切点），参 spec/M17.md。 */
+#define SM_FEATURE_CUT_MARK UINT64_C(32768)
+#define SM_FLAG_PRESSURE UINT32_C(1)
+#define SM_FLAG_CUT_END UINT32_C(2)
 
 /* M16 原子剪切：编码剪贴板 + 同一个撤销条目内删除选区，参 spec/M16.md。 */
 #define SM_FEATURE_ATOMIC_CUT UINT64_C(16384)

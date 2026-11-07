@@ -43,13 +43,14 @@ try {
     Copy-Item -LiteralPath 'spec/M14.md' -Destination (Join-Path $sdk 'spec')
     Copy-Item -LiteralPath 'spec/M15.md' -Destination (Join-Path $sdk 'spec')
     Copy-Item -LiteralPath 'spec/M16.md' -Destination (Join-Path $sdk 'spec')
+    Copy-Item -LiteralPath 'spec/M17.md' -Destination (Join-Path $sdk 'spec')
     Copy-Item -LiteralPath 'spec/fixtures/simple-v1.hex' -Destination (Join-Path $sdk 'spec/fixtures')
     Copy-Item -LiteralPath 'spec/fixtures/simple-v2-page42.hex' -Destination (Join-Path $sdk 'spec/fixtures')
     Copy-Item -LiteralPath 'bindings/csharp/NuGet.Config' -Destination (Join-Path $sdk 'bindings/csharp')
     foreach ($file in @('Scratchmark.csproj', 'Types.cs', 'Native.cs', 'Engine.cs')) {
         Copy-Item -LiteralPath (Join-Path 'bindings/csharp/Scratchmark' $file) -Destination (Join-Path $sdk 'bindings/csharp/Scratchmark')
     }
-    foreach ($file in @('Scratchmark.Smoke.csproj', 'Program.cs', 'NativeErrors.cs', 'Brush.cs', 'PageViewport.cs', 'HitErase.cs', 'LocalErase.cs', 'Selection.cs', 'TransformSelection.cs', 'ShapeRegularize.cs', 'ViewportRotation.cs', 'Prediction.cs', 'StylusAxes.cs', 'PageExtent.cs', 'BrushPreset.cs', 'Resample.cs', 'PredictionRefresh.cs', 'AtomicCut.cs')) {
+    foreach ($file in @('Scratchmark.Smoke.csproj', 'Program.cs', 'NativeErrors.cs', 'Brush.cs', 'PageViewport.cs', 'HitErase.cs', 'LocalErase.cs', 'Selection.cs', 'TransformSelection.cs', 'ShapeRegularize.cs', 'ViewportRotation.cs', 'Prediction.cs', 'StylusAxes.cs', 'PageExtent.cs', 'BrushPreset.cs', 'Resample.cs', 'PredictionRefresh.cs', 'AtomicCut.cs', 'CutMark.cs', 'CutMark.cs')) {
         Copy-Item -LiteralPath (Join-Path 'examples/csharp' $file) -Destination (Join-Path $sdk 'examples/csharp')
     }
     Copy-Item -LiteralPath 'docs/SDK_README.md' -Destination (Join-Path $sdk 'README.md')
@@ -60,7 +61,7 @@ try {
     $dirty = @(& git status --porcelain --untracked-files=normal).Count -gt 0
     if ($LASTEXITCODE -ne 0) { throw 'git status failed' }
     [ordered]@{
-        sdkVersion = $version; abi = 1; features = 32767; snapshotFormat = 2; target = $target
+        sdkVersion = $version; abi = 1; features = 65535; snapshotFormat = 2; target = $target
         sourceCommit = $head; sourceDirty = $dirty; compiler = ($compilerInfo -join "`n")
         status = 'experimental'; dependencies = 'Rust standard library and Windows system libraries'
     } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $sdk 'build-info.json') -Encoding UTF8

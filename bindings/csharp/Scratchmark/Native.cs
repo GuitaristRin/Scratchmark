@@ -35,8 +35,8 @@ internal static unsafe class Native
             }
             // 库保持到进程结束，避免 finalizer 或在途调用访问已卸载代码。
             if (AbiVersion() != 1) throw new NotSupportedException("Expected Scratchmark ABI 1.");
-            if (!NativeLibrary.TryGetExport(library, "sm_features", out _) || (Features() & 2047) != 2047)
-                throw new NotSupportedException("SDK does not support M2 brush, M3 page/viewport, M4 hit/erase, M5 partial erase, M6 selection, M7 transform, M8 shape, M9 viewport rotation, M10 prediction, M11 stylus axes or M12 page extent.");
+        if (!NativeLibrary.TryGetExport(library, "sm_features", out _) || (Features() & 65535) != 65535)
+            throw new NotSupportedException("SDK does not support M2 brush, M3 page/viewport, M4 hit/erase, M5 partial erase, M6 selection, M7 transform, M8 shape, M9 viewport rotation, M10 prediction, M11 stylus axes, M12 page extent, M13 brush preset, M14 resample, M15 prediction refresh, M16 atomic cut or M17 cut mark.");
         }
     }
 

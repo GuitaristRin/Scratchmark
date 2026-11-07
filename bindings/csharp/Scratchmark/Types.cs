@@ -256,3 +256,12 @@ public struct PredictionOptionsEx
     public BrushOptions Brush;
     public double RefreshRateHz;
 }
+/* M17：样本 flags 的位语义。 */
+public static class SampleFlags
+{
+    /// <summary>该点带真实压力（pressure ∈ [0,1]）。</summary>
+    public const uint Pressure = 1;
+
+    /// <summary>该点是擦除切出来的端点：渲染时应收成圆缺口而不是平口。</summary>
+    public const uint CutEnd = 2;
+}

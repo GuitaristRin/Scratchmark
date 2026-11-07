@@ -130,6 +130,8 @@ mod axes_tests;
 #[cfg(test)]
 mod brush_tests;
 #[cfg(test)]
+mod cut_mark_tests;
+#[cfg(test)]
 mod cut_tests;
 #[cfg(test)]
 mod erase_path_tests;
