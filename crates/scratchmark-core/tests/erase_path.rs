@@ -404,7 +404,9 @@ fn duplicate_consecutive_samples_do_not_break_the_split() {
 
     d.erase_path(revision, &[at(5.0, 0.0)], 2.0).unwrap();
     assert_eq!(d.state().stroke_count, 2);
-    assert_eq!(xs(&d, 0), vec![0.0, 3.0]);
+    // 片段保留原始样本（包括这处重合点），切点插值只增不删：
+    // M17 修掉了“整段保留时不并入顶点”的缺陷后，两段的点数与原始顶点一一对应。
+    assert_eq!(xs(&d, 0), vec![0.0, 0.0, 3.0]);
     assert_eq!(xs(&d, 1), vec![7.0, 10.0]);
 }
 
@@ -429,4 +431,48 @@ fn fragments_are_hit_testable_and_untouched_strokes_keep_working() {
     assert_eq!(d.state().stroke_count, 1);
     d.redo().unwrap();
     assert_eq!(d.state().stroke_count, 2);
+}
+
+#[test]
+fn fragments_keep_every_interior_vertex() {
+    // 用户报的“被切成很多小直线”：整段保留时必须并入本段终点，否则片段只剩首尾两点，
+    // 曲线会退化成一条弦。这里用 121 点的正弦笔划守住这个行为。
+    let mut d = Document::default();
+    d.begin(3.0, 0x11223344).unwrap();
+    let wave = |t: f64| 210.0 + (t * std::f64::consts::PI * 2.2).sin() * 62.0;
+    let samples: Vec<Sample> = (0..=120)
+        .map(|i| {
+            let t = i as f64 / 120.0;
+            Sample {
+                x: 110.0 + t * 600.0,
+                y: wave(t),
+                time_us: i as u64 * 4000,
+                pressure: 0.0,
+                flags: 0,
+            }
+        })
+        .collect();
+    d.append(&samples).unwrap();
+    d.finish().unwrap();
+    let revision = d.state().revision;
+    d.erase_path(revision, &[at(410.0, 210.0)], 20.0).unwrap();
+    assert_eq!(d.state().stroke_count, 2);
+
+    for index in 0..2 {
+        let points = points_of(&d, index);
+        // 修复前这里只有 2 个点；保留中间顶点后每段都是几十个点。
+        assert!(points.len() > 40, "片段 {index} 只有 {} 个点", points.len());
+        // 每个点都应落在解析正弦上：说明片段保留的是原始曲线，而不是一条弦。
+        for sample in &points {
+            let t = (sample.x - 110.0) / 600.0;
+            let expected = wave(t);
+            assert!(
+                (sample.y - expected).abs() < 1.0,
+                "片段 {index} 的 x={} 处 y={} 偏离曲线 {}",
+                sample.x,
+                sample.y,
+                expected
+            );
+        }
+    }
 }

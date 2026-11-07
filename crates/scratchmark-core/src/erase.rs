@@ -222,14 +222,15 @@ fn cut_stroke(
                 flush(&mut fragments, &mut current);
             } else {
                 open_at_end = true;
+                // 整段保留时必须把本段终点并入当前片段：否则只有片段首尾两点进来，
+                // 中间所有顶点都会被丢掉，片段就退化成一条直线弦（M17 之前的老毛病）。
+                current.push((*b, axes[i + 1]));
                 if i + 1 == points.len() - 1 {
-                    // 末段的终点没有下一段来补，必须在这里补上原始末点。
-                    current.push((*b, axes[i + 1]));
+                    // 末段的终点就是笔划终点，直接收尾。
                     flush(&mut fragments, &mut current);
                 }
             }
         }
-        // 本段没有被保留的部分时，不能把上一段未完成的片段接到下一段上去。
         if !open_at_end {
             flush(&mut fragments, &mut current);
         }
